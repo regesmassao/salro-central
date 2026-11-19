@@ -1,9 +1,10 @@
 'use strict';
 /* Salro Central — dashboard pessoal.
-   Lê SOMENTE os backups que os apps Salário e IR guardam no Drive (via as
-   pontes Apps Script que o dono configura em ⚙️ Conexões). Link e chave das
-   pontes ficam só no localStorage deste aparelho — nunca no código, nunca
-   em exportações. Os apps continuam independentes; aqui é só leitura. */
+   Lê SOMENTE os backups que os apps Salário, IR e Recibos guardam no
+   Drive (via as pontes Apps Script que o dono configura em ⚙️ Conexões).
+   Link e chave das pontes ficam só no localStorage deste aparelho —
+   nunca no código, nunca em exportações. Os apps continuam
+   independentes; aqui é só leitura. */
 
 /* ================= Cálculos puros (testáveis) ================= */
 const SalroCalc = (() => {
@@ -126,7 +127,43 @@ const SalroCalc = (() => {
     };
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, parseSafe };
+  /* ---- Recibos: data = {app:'recibos-jp', version, exportedAt, items:[...]}
+     Gasto do mês segue a definição da tela inicial do próprio app Recibos:
+     soma dos itens do tipo 'recibo' cuja data cai no mês de referência. */
+  function recibosSummary(data, refDate) {
+    const ym = ymOf(refDate);
+    const todayIso = refDate.getFullYear() + '-' + pad2(refDate.getMonth() + 1) + '-' + pad2(refDate.getDate());
+    const raw = (data && Array.isArray(data.items)) ? data.items : [];
+    // lista branca: só os campos que a Central lê
+    const items = raw.filter((it) => it && typeof it === 'object').map((it) => ({
+      type: typeof it.type === 'string' ? it.type : '',
+      date: typeof it.date === 'string' ? it.date : '',
+      store: typeof it.store === 'string' ? it.store : '',
+      amount: Math.max(0, Number(it.amount) || 0),
+      dueDate: (typeof it.dueDate === 'string' && it.dueDate) ? it.dueDate : null,
+      paid: !!it.paid
+    }));
+    let monthTotal = 0, monthCount = 0;
+    items.forEach((it) => {
+      if (it.type === 'recibo' && it.date.slice(0, 7) === ym) { monthTotal += it.amount; monthCount++; }
+    });
+    const bills = items.filter((it) => it.type === 'conta' && !it.paid)
+      .map((it) => {
+        const due = it.dueDate || it.date || null;
+        return { store: it.store, amount: it.amount, due, overdue: !!due && due < todayIso };
+      })
+      .sort((a, b) => String(a.due || '9999-99').localeCompare(String(b.due || '9999-99')));
+    return {
+      ym, monthTotal, monthCount,
+      bills,
+      billsCount: bills.length,
+      billsTotal: bills.reduce((s, b) => s + b.amount, 0),
+      nextDue: bills.length ? bills[0] : null,
+      overdueCount: bills.filter((b) => b.overdue).length
+    };
+  }
+
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, recibosSummary, parseSafe };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -137,7 +174,8 @@ if (typeof document !== 'undefined') (() => {
   const LS = {
     salUrl: 'central-conn-salario-url', salKey: 'central-conn-salario-key',
     irUrl: 'central-conn-ir-url', irKey: 'central-conn-ir-key',
-    cacheSal: 'central-cache-salario', cacheIr: 'central-cache-ir',
+    recUrl: 'central-recibosUrl', recKey: 'central-recibosKey',
+    cacheSal: 'central-cache-salario', cacheIr: 'central-cache-ir', cacheRec: 'central-cache-recibos',
     checklist: 'central-checklist', demo: 'central-demo'
   };
   const store = {
@@ -147,10 +185,19 @@ if (typeof document !== 'undefined') (() => {
     setRaw(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
   const isDemo = () => store.getRaw(LS.demo, '') === '1';
-  const conn = (app) => ({
-    url: (store.getRaw(app === 'sal' ? LS.salUrl : LS.irUrl, '') || '').trim(),
-    key: (store.getRaw(app === 'sal' ? LS.salKey : LS.irKey, '') || '').trim()
-  });
+  const CONN_KEYS = {
+    sal: { url: LS.salUrl, key: LS.salKey },
+    ir: { url: LS.irUrl, key: LS.irKey },
+    rec: { url: LS.recUrl, key: LS.recKey }
+  };
+  const CACHE_KEYS = { sal: LS.cacheSal, ir: LS.cacheIr, rec: LS.cacheRec };
+  const conn = (app) => {
+    const k = CONN_KEYS[app];
+    return {
+      url: (store.getRaw(k.url, '') || '').trim(),
+      key: (store.getRaw(k.key, '') || '').trim()
+    };
+  };
   const hasConn = (app) => { const c = conn(app); return !!(c.url && c.key); };
 
   /* ---------- Mapa-múndi pontilhado (grade ASCII estilizada) ---------- */
@@ -229,9 +276,29 @@ if (typeof document !== 'undefined') (() => {
       ],
       quotes: {}, histProventos: hp
     };
+    const isoDay = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const DAY = 86400000;
+    const recItem = (id, type, date, store, amount, extra) => Object.assign({
+      id, type, date, store, amount, category: 'Outros',
+      dueDate: null, validUntil: null, paid: false, note: '', link: '', photo: null, createdAt: Date.now()
+    }, extra || {});
+    const recData = {
+      app: 'recibos-jp', version: 1, exportedAt: new Date().toISOString(),
+      items: [
+        recItem('r1', 'recibo', isoDay(ref), 'Supermercado (demo)', 12480, { category: 'Supermercado' }),
+        recItem('r2', 'recibo', isoDay(ref), 'Konbini (demo)', 1360, { category: 'Konbini' }),
+        recItem('r3', 'conta', isoDay(new Date(ref.getTime() - 5 * DAY)), 'Conta de luz (demo)', 6540,
+          { dueDate: isoDay(new Date(ref.getTime() + 4 * DAY)) }),
+        recItem('r4', 'conta', isoDay(new Date(ref.getTime() - 9 * DAY)), 'Conta de água (demo)', 3280,
+          { dueDate: isoDay(new Date(ref.getTime() - 2 * DAY)) }),
+        recItem('r5', 'conta', isoDay(new Date(ref.getTime() - 6 * DAY)), 'Internet (demo)', 4180,
+          { dueDate: isoDay(new Date(ref.getTime() + 9 * DAY)), paid: true })
+      ]
+    };
     return {
       sal: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: { app: 'demo', data: msjInner } },
-      ir: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: irData }
+      ir: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: irData },
+      rec: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: recData }
     };
   }
 
@@ -344,12 +411,76 @@ if (typeof document !== 'undefined') (() => {
     } else chartA.innerHTML = '<p class="chart-empty">Sem posições no backup.</p>';
   }
 
-  /* ---------- Render: Recibos (v1: sem ponte) ---------- */
-  function renderRecibos() {
-    $('hubRecibosValue').textContent = '—';
-    $('hubNodeRecibosValue').textContent = 'em breve';
-    $('hubRecibosSub').textContent = 'A ponte do Recibos ainda não existe — gasto do mês e contas a pagar entram numa próxima versão.';
-    $('hubRecibosSync').textContent = 'ponte em breve';
+  /* ---------- Render: Recibos ---------- */
+  const escHtml = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const p = String(iso).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(iso);
+  }
+  function renderRecibos(state) {
+    const val = $('hubRecibosValue'), sub = $('hubRecibosSub'), sync = $('hubRecibosSync'),
+      node = $('hubNodeRecibosValue'), list = $('hubRecibosBills'),
+      kGasto = $('kpiRecibosGasto'), kGastoSub = $('kpiRecibosGastoSub'),
+      kContas = $('kpiRecibosContas'), kContasSub = $('kpiRecibosContasSub');
+    const gastoCard = kGasto.closest('.kpi-card'), contasCard = kContas.closest('.kpi-card');
+    const reset = () => {
+      list.innerHTML = '';
+      gastoCard.classList.add('muted'); contasCard.classList.add('muted');
+      kContas.classList.remove('danger');
+    };
+    if (!state || state.status === 'none') {
+      reset();
+      val.textContent = '—'; node.textContent = 'sem ponte';
+      sub.textContent = 'Configure a ponte do Recibos em ⚙️ Conexões para ver o gasto do mês e as contas a pagar.';
+      sync.textContent = ''; kGasto.textContent = '—'; kGastoSub.textContent = 'ponte não configurada';
+      kContas.textContent = '—'; kContasSub.textContent = 'ponte não configurada';
+      return;
+    }
+    if (state.status === 'error') {
+      reset();
+      val.textContent = '—'; node.textContent = 'erro';
+      sub.textContent = 'Não foi possível ler a nuvem — confira o link e a chave em ⚙️ Conexões.';
+      sync.textContent = ''; kGasto.textContent = '—'; kGastoSub.textContent = 'erro de leitura';
+      kContas.textContent = '—'; kContasSub.textContent = 'erro de leitura';
+      return;
+    }
+    const resp = state.resp;
+    sync.textContent = fmtSync(resp.updatedAt);
+    if (!resp.exists || !resp.data || !Array.isArray(resp.data.items)) {
+      reset();
+      val.textContent = '—'; node.textContent = 'sem backup';
+      sub.textContent = 'A ponte respondeu, mas ainda não há backup na nuvem. Abra o app Recibos JP e envie um backup.';
+      kGasto.textContent = '—'; kGastoSub.textContent = 'sem backup na nuvem';
+      kContas.textContent = '—'; kContasSub.textContent = 'sem backup na nuvem';
+      return;
+    }
+    const s = SalroCalc.recibosSummary(resp.data, new Date());
+    gastoCard.classList.remove('muted'); contasCard.classList.remove('muted');
+    val.textContent = SalroCalc.fmtJPY(s.monthTotal);
+    node.textContent = SalroCalc.fmtJPY(s.monthTotal);
+    sub.textContent = 'gasto do mês · ' + s.monthCount + (s.monthCount === 1 ? ' recibo' : ' recibos') +
+      ' · ' + s.billsCount + (s.billsCount === 1 ? ' conta a pagar' : ' contas a pagar');
+    kGasto.textContent = SalroCalc.fmtJPY(s.monthTotal);
+    kGastoSub.textContent = s.monthCount + (s.monthCount === 1 ? ' recibo no mês' : ' recibos no mês');
+    kContas.textContent = s.billsCount === 0 ? 'nenhuma 🎉' : String(s.billsCount);
+    kContas.classList.toggle('danger', s.overdueCount > 0);
+    kContasSub.innerHTML = s.billsCount === 0
+      ? 'nenhuma conta a pagar'
+      : (s.overdueCount > 0
+          ? '<span class="err">' + s.overdueCount + (s.overdueCount === 1 ? ' atrasada' : ' atrasadas') + '</span> · '
+          : '') +
+        'próxima: ' + fmtDateShort(s.nextDue.due) + ' · ' + SalroCalc.fmtJPY(s.nextDue.amount) +
+        ' · total ' + SalroCalc.fmtJPY(s.billsTotal);
+    list.innerHTML = s.bills.length
+      ? '<div class="app-list-title">Contas a vencer</div>' + s.bills.slice(0, 5).map((b) =>
+          '<div class="bill-row' + (b.overdue ? ' overdue' : '') + '">' +
+          '<span class="bill-name">' + escHtml(b.store || 'Conta') + '</span>' +
+          '<span class="bill-meta">' + SalroCalc.fmtJPY(b.amount) + ' · ' +
+          (b.due ? (b.overdue ? 'venceu ' : 'vence ') + fmtDateShort(b.due) : 'sem vencimento') +
+          '</span></div>').join('')
+      : '';
   }
 
   /* ---------- Sincronização ---------- */
@@ -366,7 +497,7 @@ if (typeof document !== 'undefined') (() => {
     return c ? { status: 'ok', resp: c } : { status: 'none' };
   }
   async function syncApp(app, status) {
-    const cacheKey = app === 'sal' ? LS.cacheSal : LS.cacheIr;
+    const cacheKey = CACHE_KEYS[app];
     if (!hasConn(app)) { status[app] = cachedState(cacheKey); if (status[app].status === 'none') status[app] = { status: 'none' }; return; }
     try {
       const resp = await fetchBridge(conn(app));
@@ -383,11 +514,12 @@ if (typeof document !== 'undefined') (() => {
       const demo = makeDemo(new Date());
       renderSalario({ status: 'ok', resp: demo.sal });
       renderIr({ status: 'ok', resp: demo.ir });
+      renderRecibos({ status: 'ok', resp: demo.rec });
     } else {
       renderSalario(status.sal);
       renderIr(status.ir);
+      renderRecibos(status.rec);
     }
-    renderRecibos();
     $('demoBanner').hidden = !isDemo();
     $('demoToggle').textContent = isDemo() ? 'Sair do modo demonstração' : 'Ver modo demonstração';
   }
@@ -395,12 +527,13 @@ if (typeof document !== 'undefined') (() => {
     const statusEl = $('connStatus');
     if (manual) statusEl.textContent = 'Sincronizando…';
     const status = {};
-    await Promise.all([syncApp('sal', status), syncApp('ir', status)]);
+    await Promise.all([syncApp('sal', status), syncApp('ir', status), syncApp('rec', status)]);
     renderAll(status);
     if (manual) {
       const parts = [];
       parts.push(hasConn('sal') ? (status.sal.status === 'ok' ? '<span class="ok">Salário ✓</span>' : '<span class="err">Salário: não foi possível ler — confira link e chave</span>') : 'Salário: ponte não configurada');
       parts.push(hasConn('ir') ? (status.ir.status === 'ok' ? '<span class="ok">IR ✓</span>' : '<span class="err">IR: não foi possível ler — confira link e chave</span>') : 'IR: ponte não configurada');
+      parts.push(hasConn('rec') ? (status.rec.status === 'ok' ? '<span class="ok">Recibos ✓</span>' : '<span class="err">Recibos: não foi possível ler — confira link e chave</span>') : 'Recibos: ponte não configurada');
       statusEl.innerHTML = parts.join(' · ');
     }
     window.__centralStatus = status;
@@ -480,11 +613,15 @@ if (typeof document !== 'undefined') (() => {
     $('connSalarioKey').value = store.getRaw(LS.salKey, '');
     $('connIrUrl').value = store.getRaw(LS.irUrl, '');
     $('connIrKey').value = store.getRaw(LS.irKey, '');
+    $('connRecibosUrl').value = store.getRaw(LS.recUrl, '');
+    $('connRecibosKey').value = store.getRaw(LS.recKey, '');
     $('connSave').addEventListener('click', () => {
       store.setRaw(LS.salUrl, $('connSalarioUrl').value.trim());
       store.setRaw(LS.salKey, $('connSalarioKey').value.trim());
       store.setRaw(LS.irUrl, $('connIrUrl').value.trim());
       store.setRaw(LS.irKey, $('connIrKey').value.trim());
+      store.setRaw(LS.recUrl, $('connRecibosUrl').value.trim());
+      store.setRaw(LS.recKey, $('connRecibosKey').value.trim());
       if (isDemo()) store.setRaw(LS.demo, '');
       $('connStatus').textContent = 'Conexões salvas. Sincronizando…';
       syncAll(true);
@@ -548,7 +685,7 @@ if (typeof document !== 'undefined') (() => {
     });
 
     // primeira pintura a partir do cache, depois sincroniza
-    renderAll({ sal: cachedState(LS.cacheSal), ir: cachedState(LS.cacheIr) });
+    renderAll({ sal: cachedState(LS.cacheSal), ir: cachedState(LS.cacheIr), rec: cachedState(LS.cacheRec) });
     syncAll(false);
 
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
