@@ -90,9 +90,10 @@
         <a class="app-open" href="https://regesmassao.github.io/minha-declaracao-ir/" target="_blank" rel="noopener">Abrir o app →</a>
       </article>
       <article class="glass-card app-card" id="card-recibos">
-        <div class="app-card-top"><span class="app-emoji">🧾</span><h3>Recibos JP</h3><span class="app-sync" id="hubRecibosSync">ponte em breve</span></div>
+        <div class="app-card-top"><span class="app-emoji">🧾</span><h3>Recibos JP</h3><span class="app-sync" id="hubRecibosSync"></span></div>
         <div class="app-value" id="hubRecibosValue">—</div>
         <div class="app-sub" id="hubRecibosSub">Meus Recibos JP</div>
+        <div id="hubRecibosBills"></div>
         <a class="app-open" href="https://regesmassao.github.io/-meus-recibos-jp/" target="_blank" rel="noopener">Abrir o app →</a>
       </article>
     </div>
@@ -114,13 +115,13 @@
       </div>
       <div class="glass-card kpi-card muted">
         <div class="kpi-label">🧾 Gasto no mês · Recibos (¥)</div>
-        <div class="kpi-value small">Ponte em breve</div>
-        <div class="kpi-sub">quando a ponte do Recibos existir, o total do mês aparece aqui</div>
+        <div class="kpi-value" id="kpiRecibosGasto">—</div>
+        <div class="kpi-sub" id="kpiRecibosGastoSub">ponte não configurada</div>
       </div>
       <div class="glass-card kpi-card muted">
         <div class="kpi-label">📄 Contas a pagar · Recibos (¥)</div>
-        <div class="kpi-value small">Ponte em breve</div>
-        <div class="kpi-sub">as contas com vencimento do Recibos aparecem aqui</div>
+        <div class="kpi-value" id="kpiRecibosContas">—</div>
+        <div class="kpi-sub" id="kpiRecibosContasSub">ponte não configurada</div>
       </div>
     </div>
   </section>
@@ -169,6 +170,10 @@
       <input type="url" id="connIrUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
       <label class="conn-label" for="connIrKey">Chave secreta do IR</label>
       <input type="text" id="connIrKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+      <label class="conn-label" for="connRecibosUrl">🧾 Ponte do Recibos — link do script</label>
+      <input type="url" id="connRecibosUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+      <label class="conn-label" for="connRecibosKey">Chave secreta do Recibos</label>
+      <input type="text" id="connRecibosKey" placeholder="chave…" autocomplete="off" spellcheck="false">
       <div class="conn-actions">
         <button type="button" id="connSave" class="btn-accent">Salvar conexões</button>
         <button type="button" id="syncNow" class="btn-ghost">↻ Sincronizar agora</button>
