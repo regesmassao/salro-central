@@ -1,12 +1,13 @@
 /* Salro Central — service worker: rede primeiro, cache de reserva */
-const CACHE = 'salro-central-v1';
+const CACHE = 'salro-central-v1-1';
 const SHELL = [
   './',
   './index.html',
   './app.js',
   './styles.css',
   './manifest.webmanifest',
-  './icon.svg'
+  './IMG_6773.png',
+  './IMG_6772.png'
 ];
 
 self.addEventListener('install', (event) => {
