@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Salro Central</title>
+<meta name="theme-color" content="#091835">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="hub-head">
+  <div class="hub-title">
+    <div>
+      <h1>Salro <span class="accent">Central</span></h1>
+      <p id="todayLine">—</p>
+    </div>
+    <div id="demoBanner" class="demo-banner" hidden>⚠ MODO DEMONSTRAÇÃO — dados fictícios, só para ver o desenho. Configure as pontes em ⚙️ Conexões para ver os seus dados.</div>
+  </div>
+
+  <!-- HUB: mapa-múndi pontilhado (Pacífico no centro), nós luminosos e arcos.
+       Os pontinhos dos continentes são gerados pelo app.js a partir de um
+       mapa ASCII estilizado; o Japão vem destacado em cobre. -->
+  <svg id="hubSvg" viewBox="0 0 360 208" role="img" aria-label="Mapa-múndi da Salro: Japão e Brasil ligados pelos apps">
+    <g id="worldDots"></g>
+    <path class="hub-arc" d="M 278,46 Q 168,-6 60,92"/>
+    <path class="hub-arc" d="M 282,42 Q 268,22 257,28"/>
+    <path class="hub-arc" d="M 314,80 Q 328,88 331,95"/>
+    <path class="hub-arc" d="M 284,80 Q 270,94 265,99"/>
+    <g class="hub-center">
+      <circle cx="298" cy="60" r="36" class="hub-center-halo"/>
+      <circle cx="298" cy="60" r="25" class="hub-center-circle"/>
+      <g transform="translate(298,61)" stroke="#091835" stroke-width="2.4" fill="none" stroke-linecap="round">
+        <path d="M0 13 V-3 M0 -3 C0 -9 -4.5 -10.8 -9 -12 M0 -3 C0 -9 4.5 -10.8 9 -12 M0 3 C-2.8 -0.5 -6.5 -1.2 -10 -0.5 M0 3 C2.8 -0.5 6.5 -1.2 10 -0.5"/>
+      </g>
+      <circle cx="289" cy="48.6" r="2" fill="#091835"/><circle cx="307" cy="48.6" r="2" fill="#091835"/>
+      <circle cx="288" cy="60.5" r="1.7" fill="#091835"/><circle cx="308" cy="60.5" r="1.7" fill="#091835"/>
+      <path d="M298 40.5 l1.4 3.1 3.1 1.4 -3.1 1.4 -1.4 3.1 -1.4 -3.1 -3.1 -1.4 3.1 -1.4 Z" fill="#CD9264"/>
+      <text x="298" y="103" class="hub-center-label">SALRO</text>
+    </g>
+    <g class="hub-node" data-target="card-salario" tabindex="0" role="button" aria-label="Ir ao cartão do app Salário">
+      <circle cx="252" cy="34" r="19" class="map-node-halo"/>
+      <circle cx="252" cy="34" r="13" class="map-node-circle"/>
+      <text x="252" y="38.5" class="map-node-emoji">🌳</text>
+      <text x="252" y="64" class="map-node-name">Salário</text>
+      <text x="252" y="75" class="map-node-value" id="hubNodeSalarioValue">—</text>
+    </g>
+    <g class="hub-node" data-target="card-ir" tabindex="0" role="button" aria-label="Ir ao cartão do app Meu IR">
+      <circle cx="46" cy="104" r="19" class="map-node-halo"/>
+      <circle cx="46" cy="104" r="13" class="map-node-circle"/>
+      <text x="46" y="108.5" class="map-node-emoji">📊</text>
+      <text x="46" y="134" class="map-node-name">Meu IR</text>
+      <text x="46" y="145" class="map-node-value" id="hubNodeIrValue">—</text>
+    </g>
+    <g class="hub-node" data-target="card-recibos" tabindex="0" role="button" aria-label="Ir ao cartão do app Recibos JP">
+      <circle cx="336" cy="104" r="19" class="map-node-halo"/>
+      <circle cx="336" cy="104" r="13" class="map-node-circle"/>
+      <text x="336" y="108.5" class="map-node-emoji">🧾</text>
+      <text x="336" y="134" class="map-node-name">Recibos</text>
+      <text x="336" y="145" class="map-node-value" id="hubNodeRecibosValue">—</text>
+    </g>
+    <g class="hub-node" data-target="card-checklist" tabindex="0" role="button" aria-label="Ir ao checklist Minha vida no Japão">
+      <circle cx="258" cy="108" r="19" class="map-node-halo"/>
+      <circle cx="258" cy="108" r="13" class="map-node-circle"/>
+      <text x="258" y="112.5" class="map-node-emoji">✅</text>
+      <text x="258" y="138" class="map-node-name">Checklist</text>
+      <text x="258" y="149" class="map-node-value" id="hubNodeChecklistValue">—</text>
+    </g>
+  </svg>
+</header>
+
+<main>
+  <!-- 1. CARTÕES DOS APPS -->
+  <section aria-label="Seus apps">
+    <div class="app-cards">
+      <article class="glass-card app-card" id="card-salario">
+        <div class="app-card-top"><span class="app-emoji">🌳</span><h3>Salário</h3><span class="app-sync" id="hubSalarioSync"></span></div>
+        <div class="app-value" id="hubSalarioValue">—</div>
+        <div class="app-sub" id="hubSalarioSub">Meu Salário Japão</div>
+        <a class="app-open" href="https://regesmassao.github.io/meu-salario-japao/" target="_blank" rel="noopener">Abrir o app →</a>
+      </article>
+      <article class="glass-card app-card" id="card-ir">
+        <div class="app-card-top"><span class="app-emoji">📊</span><h3>Meu IR</h3><span class="app-sync" id="hubIrSync"></span></div>
+        <div class="app-value" id="hubIrValue">—</div>
+        <div class="app-sub" id="hubIrSub">Minha Declaração de IR</div>
+        <a class="app-open" href="https://regesmassao.github.io/minha-declaracao-ir/" target="_blank" rel="noopener">Abrir o app →</a>
+      </article>
+      <article class="glass-card app-card" id="card-recibos">
+        <div class="app-card-top"><span class="app-emoji">🧾</span><h3>Recibos JP</h3><span class="app-sync" id="hubRecibosSync">ponte em breve</span></div>
+        <div class="app-value" id="hubRecibosValue">—</div>
+        <div class="app-sub" id="hubRecibosSub">Meus Recibos JP</div>
+        <a class="app-open" href="https://regesmassao.github.io/-meus-recibos-jp/" target="_blank" rel="noopener">Abrir o app →</a>
+      </article>
+    </div>
+  </section>
+
+  <!-- 2. KPIs -->
+  <section aria-label="Resumo">
+    <h2 class="sec-title">Resumo</h2>
+    <div class="kpi-grid">
+      <div class="glass-card kpi-card">
+        <div class="kpi-label">🌳 Salário do mês · casal (¥)</div>
+        <div class="kpi-value" id="kpiSalario">—</div>
+        <div class="kpi-sub" id="kpiSalarioSub"></div>
+      </div>
+      <div class="glass-card kpi-card">
+        <div class="kpi-label">📊 Proventos · últimos 12 meses (R$)</div>
+        <div class="kpi-value" id="kpiProventos">—</div>
+        <div class="kpi-sub" id="kpiProventosSub"></div>
+      </div>
+      <div class="glass-card kpi-card muted">
+        <div class="kpi-label">🧾 Gasto no mês · Recibos (¥)</div>
+        <div class="kpi-value small">Ponte em breve</div>
+        <div class="kpi-sub">quando a ponte do Recibos existir, o total do mês aparece aqui</div>
+      </div>
+      <div class="glass-card kpi-card muted">
+        <div class="kpi-label">📄 Contas a pagar · Recibos (¥)</div>
+        <div class="kpi-value small">Ponte em breve</div>
+        <div class="kpi-sub">as contas com vencimento do Recibos aparecem aqui</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GRÁFICOS -->
+  <section aria-label="Investimentos">
+    <h2 class="sec-title">Investimentos</h2>
+    <div class="glass-card">
+      <h3 class="card-title">Proventos por mês · últimos 12 meses (R$)</h3>
+      <div id="chartProventos" class="chart-box"><p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p></div>
+    </div>
+    <div class="glass-card">
+      <h3 class="card-title">Alocação da carteira · a custo (R$)</h3>
+      <div id="chartAlocacao" class="chart-box"><p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p></div>
+    </div>
+  </section>
+
+  <!-- 4. CHECKLIST -->
+  <section aria-label="Checklist" id="card-checklist">
+    <h2 class="sec-title">✅ Checklist — Minha vida no Japão</h2>
+    <div class="glass-card">
+      <ul id="checkList" class="check-list"></ul>
+      <form id="checkForm" class="check-form">
+        <input type="text" id="checkText" placeholder="Novo item…" required maxlength="140" autocomplete="off">
+        <input type="date" id="checkDue" aria-label="Data (opcional)">
+        <button type="submit" class="btn-accent">Adicionar</button>
+      </form>
+      <div class="check-tools">
+        <button type="button" id="checkExport" class="btn-ghost">Exportar JSON</button>
+        <label class="btn-ghost file-label">Importar JSON<input type="file" id="checkImport" accept="application/json" hidden></label>
+      </div>
+      <p class="fineprint">A lista fica salva só neste aparelho (e no JSON que você exportar). Importar junta os itens — nunca apaga os que já estão aqui.</p>
+    </div>
+  </section>
+
+  <!-- 5. CONEXÕES -->
+  <section aria-label="Conexões">
+    <h2 class="sec-title">⚙️ Conexões</h2>
+    <div class="glass-card">
+      <p class="fineprint top">Cole o link e a chave de cada ponte (os mesmos que você usa dentro de cada app, em Ajustes → Nuvem). Eles ficam guardados <strong>só neste aparelho</strong> e nunca entram em backup nem em exportação.</p>
+      <label class="conn-label" for="connSalarioUrl">🌳 Ponte do Salário — link do script</label>
+      <input type="url" id="connSalarioUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+      <label class="conn-label" for="connSalarioKey">Chave secreta do Salário</label>
+      <input type="text" id="connSalarioKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+      <label class="conn-label" for="connIrUrl">📊 Ponte do IR — link do script</label>
+      <input type="url" id="connIrUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+      <label class="conn-label" for="connIrKey">Chave secreta do IR</label>
+      <input type="text" id="connIrKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+      <div class="conn-actions">
+        <button type="button" id="connSave" class="btn-accent">Salvar conexões</button>
+        <button type="button" id="syncNow" class="btn-ghost">↻ Sincronizar agora</button>
+      </div>
+      <p class="conn-status" id="connStatus"></p>
+      <hr class="sep">
+      <div class="conn-actions">
+        <button type="button" id="demoToggle" class="btn-ghost">Ver modo demonstração</button>
+      </div>
+      <p class="fineprint">Sem as pontes configuradas, os cartões mostram como conectar — ou use o modo demonstração para ver o desenho com dados fictícios.</p>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>Salro Central · os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) são mostrados separados, sem conversão.</p>
+  </footer>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
