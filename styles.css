@@ -82,6 +82,7 @@ main{max-width:560px;margin:0 auto;padding:0 16px 32px}
   paint-order:stroke;stroke:rgba(9,24,53,.85);stroke-width:2.6px;stroke-linejoin:round;
 }
 .hub-node{cursor:pointer;outline:none}
+.map-node-hit{fill:rgba(0,0,0,0);pointer-events:all}
 .map-node-halo{fill:rgba(205,146,100,.20);transform-box:fill-box;transform-origin:center;animation:haloPulse 2.8s ease-in-out infinite}
 g.hub-node:nth-of-type(4) .map-node-halo{animation-delay:.7s}
 g.hub-node:nth-of-type(5) .map-node-halo{animation-delay:1.4s}
