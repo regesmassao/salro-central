@@ -41,6 +41,7 @@
     <path class="hub-arc" d="M 282,42 Q 268,22 257,28"/>
     <path class="hub-arc" d="M 314,80 Q 328,88 331,95"/>
     <path class="hub-arc" d="M 284,80 Q 270,94 265,99"/>
+    <path class="hub-arc" d="M 280,84 Q 235,138 192,150"/>
     <g class="hub-center">
       <circle cx="298" cy="60" r="36" class="hub-center-halo"/>
       <circle cx="298" cy="60" r="25" class="hub-center-circle"/>
@@ -83,6 +84,14 @@
       <text x="258" y="138" class="map-node-name">Checklist</text>
       <rect class="map-node-pill" x="219" y="139" width="78" height="14.5" rx="7.25"/>
       <text x="258" y="149" class="map-node-value" id="hubNodeChecklistValue">—</text>
+    </g>
+    <g class="hub-node" data-target="card-cofre" tabindex="0" role="button" aria-label="Ir ao cofre de senhas">
+      <circle cx="170" cy="156" r="19" class="map-node-halo"/>
+      <circle cx="170" cy="156" r="13" class="map-node-circle"/>
+      <text x="170" y="160.5" class="map-node-emoji">🔐</text>
+      <text x="170" y="186" class="map-node-name">Senhas</text>
+      <rect class="map-node-pill" x="138" y="187.5" width="64" height="14.5" rx="7.25"/>
+      <text x="170" y="197" class="map-node-value">3 pontes</text>
     </g>
   </svg>
 </header>
@@ -202,7 +211,7 @@
   </section>
 
   <!-- 6. COFRE -->
-  <section aria-label="Cofre de senhas">
+  <section aria-label="Cofre de senhas" id="card-cofre">
     <h2 class="sec-title">🔐 Cofre de senhas</h2>
     <div class="glass-card">
       <p class="fineprint top">As chaves das pontes ficam guardadas no <strong>app Senhas do iPhone</strong>, protegidas pelo Face ID. Guardados lá:</p>
