@@ -186,6 +186,7 @@ input:focus{outline:none;border-color:var(--copper);box-shadow:0 0 0 3px rgba(20
   transition:opacity .15s ease, transform .12s ease;
 }
 .btn-accent:active{opacity:.75;transform:scale(.98)}
+.btn-link{display:inline-block;text-decoration:none;text-align:center}
 .btn-ghost{
   background:var(--glass-strong);color:var(--cream);border:1px solid var(--border);border-radius:var(--radius-sm);
   font-size:13px;font-weight:600;padding:9px 13px;cursor:pointer;display:inline-block;
