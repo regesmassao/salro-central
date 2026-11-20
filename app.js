@@ -509,17 +509,36 @@ if (typeof document !== 'undefined') (() => {
       status[app].error = true;
     }
   }
+  function renderSyncPill(st) {
+    const pill = $('syncPill');
+    if (!pill) return;
+    if (isDemo()) { pill.textContent = '✦ demonstração'; pill.hidden = false; return; }
+    let latest = null;
+    ['sal', 'ir', 'rec'].forEach((k) => {
+      const s = st && st[k];
+      if (s && s.status === 'ok' && s.resp && s.resp.updatedAt) {
+        const t = new Date(s.resp.updatedAt).getTime();
+        if (!isNaN(t) && (latest === null || t > latest)) latest = t;
+      }
+    });
+    if (latest === null) { pill.hidden = true; return; }
+    pill.textContent = 'sincronizado · ' + new Date(latest).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    pill.hidden = false;
+  }
   function renderAll(status) {
+    let eff = status;
     if (isDemo()) {
       const demo = makeDemo(new Date());
-      renderSalario({ status: 'ok', resp: demo.sal });
-      renderIr({ status: 'ok', resp: demo.ir });
-      renderRecibos({ status: 'ok', resp: demo.rec });
-    } else {
-      renderSalario(status.sal);
-      renderIr(status.ir);
-      renderRecibos(status.rec);
+      eff = {
+        sal: { status: 'ok', resp: demo.sal },
+        ir: { status: 'ok', resp: demo.ir },
+        rec: { status: 'ok', resp: demo.rec }
+      };
     }
+    renderSalario(eff.sal);
+    renderIr(eff.ir);
+    renderRecibos(eff.rec);
+    renderSyncPill(eff);
     $('demoBanner').hidden = !isDemo();
     $('demoToggle').textContent = isDemo() ? 'Sair do modo demonstração' : 'Ver modo demonstração';
   }
