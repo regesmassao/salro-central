@@ -16,7 +16,8 @@
 <header class="hub-head">
   <div class="hub-title">
     <div class="hub-title-row">
-      <div>
+      <button type="button" id="menuBtn" class="menu-btn" aria-label="Abrir o menu">☰</button>
+      <div class="hub-title-text">
         <h1><span class="wm-spark" aria-hidden="true">✦</span>Salro <span class="accent">Central</span></h1>
         <p id="todayLine">—</p>
       </div>
@@ -53,7 +54,7 @@
       <path d="M298 40.5 l1.4 3.1 3.1 1.4 -3.1 1.4 -1.4 3.1 -1.4 -3.1 -3.1 -1.4 3.1 -1.4 Z" fill="#CD9264"/>
       <text x="298" y="103" class="hub-center-label">SALRO</text>
     </g>
-    <g class="hub-node" data-target="card-salario" tabindex="0" role="button" aria-label="Ir ao cartão do app Salário">
+    <g class="hub-node" data-target="sheet-salario" tabindex="0" role="button" aria-label="Abrir o painel do app Salário">
       <circle cx="252" cy="34" r="19" class="map-node-halo"/>
       <circle cx="252" cy="34" r="13" class="map-node-circle"/>
       <text x="252" y="38.5" class="map-node-emoji">🌳</text>
@@ -61,7 +62,7 @@
       <rect class="map-node-pill" x="220" y="65.5" width="64" height="14.5" rx="7.25"/>
       <text x="252" y="75" class="map-node-value" id="hubNodeSalarioValue">—</text>
     </g>
-    <g class="hub-node" data-target="card-ir" tabindex="0" role="button" aria-label="Ir ao cartão do app Meu IR">
+    <g class="hub-node" data-target="sheet-ir" tabindex="0" role="button" aria-label="Abrir o painel do app Meu IR">
       <circle cx="46" cy="104" r="19" class="map-node-halo"/>
       <circle cx="46" cy="104" r="13" class="map-node-circle"/>
       <text x="46" y="108.5" class="map-node-emoji">📊</text>
@@ -69,7 +70,7 @@
       <rect class="map-node-pill" x="14" y="135.5" width="64" height="14.5" rx="7.25"/>
       <text x="46" y="145" class="map-node-value" id="hubNodeIrValue">—</text>
     </g>
-    <g class="hub-node" data-target="card-recibos" tabindex="0" role="button" aria-label="Ir ao cartão do app Recibos JP">
+    <g class="hub-node" data-target="sheet-recibos" tabindex="0" role="button" aria-label="Abrir o painel do app Recibos JP">
       <circle cx="336" cy="104" r="19" class="map-node-halo"/>
       <circle cx="336" cy="104" r="13" class="map-node-circle"/>
       <text x="336" y="108.5" class="map-node-emoji">🧾</text>
@@ -77,7 +78,7 @@
       <rect class="map-node-pill" x="300" y="135.5" width="60" height="14.5" rx="7.25"/>
       <text x="336" y="145" class="map-node-value" id="hubNodeRecibosValue">—</text>
     </g>
-    <g class="hub-node" data-target="card-checklist" tabindex="0" role="button" aria-label="Ir ao checklist Minha vida no Japão">
+    <g class="hub-node" data-target="sheet-checklist" tabindex="0" role="button" aria-label="Abrir o checklist Minha vida no Japão">
       <circle cx="258" cy="108" r="19" class="map-node-halo"/>
       <circle cx="258" cy="108" r="13" class="map-node-circle"/>
       <text x="258" y="112.5" class="map-node-emoji">✅</text>
@@ -85,7 +86,7 @@
       <rect class="map-node-pill" x="219" y="139" width="78" height="14.5" rx="7.25"/>
       <text x="258" y="149" class="map-node-value" id="hubNodeChecklistValue">—</text>
     </g>
-    <g class="hub-node" data-target="card-cofre" tabindex="0" role="button" aria-label="Ir ao cofre de senhas">
+    <g class="hub-node" data-target="sheet-cofre" tabindex="0" role="button" aria-label="Abrir o cofre de senhas">
       <circle cx="170" cy="156" r="19" class="map-node-halo"/>
       <circle cx="170" cy="156" r="13" class="map-node-circle"/>
       <text x="170" y="160.5" class="map-node-emoji">🔐</text>
@@ -94,24 +95,76 @@
       <text x="170" y="197" class="map-node-value">3 pontes</text>
     </g>
   </svg>
+  <p class="hub-hint">Toque num ponto do mapa para abrir o painel — ou no menu ☰, no canto.</p>
 </header>
 
+<!-- MENU LATERAL -->
+<nav id="drawer" class="drawer" aria-label="Menu da Central" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="drawer-title"><span class="wm-spark" aria-hidden="true">✦</span> Salro Central</span>
+    <button type="button" class="sheet-close" id="drawerClose" aria-label="Fechar o menu">✕</button>
+  </div>
+  <button type="button" class="drawer-item" data-sheet="sheet-salario">🌳 Salário</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-ir">📊 Meu IR · Investimentos</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-recibos">🧾 Recibos</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-checklist">✅ Checklist — Minha vida no Japão</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-cofre">🔐 Cofre de senhas</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-conexoes">⚙️ Conexões</button>
+  <hr class="sep">
+  <button type="button" class="drawer-item" id="drawerSync">↻ Sincronizar agora</button>
+  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.</p>
+</nav>
+<div id="backdrop" class="backdrop" hidden></div>
+
 <main>
-  <!-- 1. CARTÕES DOS APPS -->
-  <section aria-label="Seus apps">
-    <div class="app-cards">
+  <!-- PAINEL: SALÁRIO -->
+  <div class="sheet" id="sheet-salario" hidden role="dialog" aria-label="Salário">
+    <div class="sheet-head"><h2>🌳 Salário</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
       <article class="glass-card app-card" id="card-salario">
         <div class="app-card-top"><span class="app-emoji">🌳</span><h3>Salário</h3><span class="app-sync" id="hubSalarioSync"></span></div>
         <div class="app-value" id="hubSalarioValue">—</div>
         <div class="app-sub" id="hubSalarioSub">Meu Salário Japão</div>
         <a class="app-open" href="https://regesmassao.github.io/meu-salario-japao/" target="_blank" rel="noopener">Abrir o app →</a>
       </article>
+      <div class="glass-card kpi-card">
+        <div class="kpi-label">🌳 Salário do mês · casal (¥)</div>
+        <div class="kpi-value" id="kpiSalario">—</div>
+        <div class="kpi-sub" id="kpiSalarioSub"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL: MEU IR / INVESTIMENTOS -->
+  <div class="sheet" id="sheet-ir" hidden role="dialog" aria-label="Meu IR e investimentos">
+    <div class="sheet-head"><h2>📊 Meu IR · Investimentos</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
       <article class="glass-card app-card" id="card-ir">
         <div class="app-card-top"><span class="app-emoji">📊</span><h3>Meu IR</h3><span class="app-sync" id="hubIrSync"></span></div>
         <div class="app-value" id="hubIrValue">—</div>
         <div class="app-sub" id="hubIrSub">Minha Declaração de IR</div>
         <a class="app-open" href="https://regesmassao.github.io/minha-declaracao-ir/" target="_blank" rel="noopener">Abrir o app →</a>
       </article>
+      <div class="glass-card kpi-card">
+        <div class="kpi-label">📊 Proventos · últimos 12 meses (R$)</div>
+        <div class="kpi-value" id="kpiProventos">—</div>
+        <div class="kpi-sub" id="kpiProventosSub"></div>
+      </div>
+      <div class="glass-card">
+        <h3 class="card-title">Proventos por mês · últimos 12 meses (R$)</h3>
+        <div id="chartProventos" class="chart-box"><p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p></div>
+      </div>
+      <div class="glass-card">
+        <h3 class="card-title">Alocação da carteira · a custo (R$)</h3>
+        <div id="chartAlocacao" class="chart-box"><p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL: RECIBOS -->
+  <div class="sheet" id="sheet-recibos" hidden role="dialog" aria-label="Recibos JP">
+    <div class="sheet-head"><h2>🧾 Recibos</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
       <article class="glass-card app-card" id="card-recibos">
         <div class="app-card-top"><span class="app-emoji">🧾</span><h3>Recibos JP</h3><span class="app-sync" id="hubRecibosSync"></span></div>
         <div class="app-value" id="hubRecibosValue">—</div>
@@ -119,23 +172,6 @@
         <div id="hubRecibosBills"></div>
         <a class="app-open" href="https://regesmassao.github.io/-meus-recibos-jp/" target="_blank" rel="noopener">Abrir o app →</a>
       </article>
-    </div>
-  </section>
-
-  <!-- 2. KPIs -->
-  <section aria-label="Resumo">
-    <h2 class="sec-title"><span class="spark" aria-hidden="true">✦</span>Resumo</h2>
-    <div class="kpi-grid">
-      <div class="glass-card kpi-card">
-        <div class="kpi-label">🌳 Salário do mês · casal (¥)</div>
-        <div class="kpi-value" id="kpiSalario">—</div>
-        <div class="kpi-sub" id="kpiSalarioSub"></div>
-      </div>
-      <div class="glass-card kpi-card">
-        <div class="kpi-label">📊 Proventos · últimos 12 meses (R$)</div>
-        <div class="kpi-value" id="kpiProventos">—</div>
-        <div class="kpi-sub" id="kpiProventosSub"></div>
-      </div>
       <div class="glass-card kpi-card muted">
         <div class="kpi-label">🧾 Gasto no mês · Recibos (¥)</div>
         <div class="kpi-value" id="kpiRecibosGasto">—</div>
@@ -147,85 +183,74 @@
         <div class="kpi-sub" id="kpiRecibosContasSub">ponte não configurada</div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- 3. GRÁFICOS -->
-  <section aria-label="Investimentos">
-    <h2 class="sec-title"><span class="spark" aria-hidden="true">✦</span>Investimentos</h2>
-    <div class="glass-card">
-      <h3 class="card-title">Proventos por mês · últimos 12 meses (R$)</h3>
-      <div id="chartProventos" class="chart-box"><p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p></div>
-    </div>
-    <div class="glass-card">
-      <h3 class="card-title">Alocação da carteira · a custo (R$)</h3>
-      <div id="chartAlocacao" class="chart-box"><p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p></div>
-    </div>
-  </section>
-
-  <!-- 4. CHECKLIST -->
-  <section aria-label="Checklist" id="card-checklist">
-    <h2 class="sec-title">✅ Checklist — Minha vida no Japão</h2>
-    <div class="glass-card">
-      <ul id="checkList" class="check-list"></ul>
-      <form id="checkForm" class="check-form">
-        <input type="text" id="checkText" placeholder="Novo item…" required maxlength="140" autocomplete="off">
-        <input type="date" id="checkDue" aria-label="Data (opcional)">
-        <button type="submit" class="btn-accent">Adicionar</button>
-      </form>
-      <div class="check-tools">
-        <button type="button" id="checkExport" class="btn-ghost">Exportar JSON</button>
-        <label class="btn-ghost file-label">Importar JSON<input type="file" id="checkImport" accept="application/json" hidden></label>
+  <!-- PAINEL: CHECKLIST -->
+  <div class="sheet" id="sheet-checklist" hidden role="dialog" aria-label="Checklist — Minha vida no Japão">
+    <div class="sheet-head"><h2>✅ Checklist — Minha vida no Japão</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
+      <div class="glass-card">
+        <ul id="checkList" class="check-list"></ul>
+        <form id="checkForm" class="check-form">
+          <input type="text" id="checkText" placeholder="Novo item…" required maxlength="140" autocomplete="off">
+          <input type="date" id="checkDue" aria-label="Data (opcional)">
+          <button type="submit" class="btn-accent">Adicionar</button>
+        </form>
+        <div class="check-tools">
+          <button type="button" id="checkExport" class="btn-ghost">Exportar JSON</button>
+          <label class="btn-ghost file-label">Importar JSON<input type="file" id="checkImport" accept="application/json" hidden></label>
+        </div>
+        <p class="fineprint">A lista fica salva só neste aparelho (e no JSON que você exportar). Importar junta os itens — nunca apaga os que já estão aqui.</p>
       </div>
-      <p class="fineprint">A lista fica salva só neste aparelho (e no JSON que você exportar). Importar junta os itens — nunca apaga os que já estão aqui.</p>
     </div>
-  </section>
+  </div>
 
-  <!-- 5. CONEXÕES -->
-  <section aria-label="Conexões">
-    <h2 class="sec-title">⚙️ Conexões</h2>
-    <div class="glass-card">
-      <p class="fineprint top">Cole o link e a chave de cada ponte (os mesmos que você usa dentro de cada app, em Ajustes → Nuvem). Eles ficam guardados <strong>só neste aparelho</strong> e nunca entram em backup nem em exportação.</p>
-      <label class="conn-label" for="connSalarioUrl">🌳 Ponte do Salário — link do script</label>
-      <input type="url" id="connSalarioUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
-      <label class="conn-label" for="connSalarioKey">Chave secreta do Salário</label>
-      <input type="text" id="connSalarioKey" placeholder="chave…" autocomplete="off" spellcheck="false">
-      <label class="conn-label" for="connIrUrl">📊 Ponte do IR — link do script</label>
-      <input type="url" id="connIrUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
-      <label class="conn-label" for="connIrKey">Chave secreta do IR</label>
-      <input type="text" id="connIrKey" placeholder="chave…" autocomplete="off" spellcheck="false">
-      <label class="conn-label" for="connRecibosUrl">🧾 Ponte do Recibos — link do script</label>
-      <input type="url" id="connRecibosUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
-      <label class="conn-label" for="connRecibosKey">Chave secreta do Recibos</label>
-      <input type="text" id="connRecibosKey" placeholder="chave…" autocomplete="off" spellcheck="false">
-      <div class="conn-actions">
-        <button type="button" id="connSave" class="btn-accent">Salvar conexões</button>
-        <button type="button" id="syncNow" class="btn-ghost">↻ Sincronizar agora</button>
+  <!-- PAINEL: CONEXÕES -->
+  <div class="sheet" id="sheet-conexoes" hidden role="dialog" aria-label="Conexões">
+    <div class="sheet-head"><h2>⚙️ Conexões</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
+      <div class="glass-card">
+        <p class="fineprint top">Cole o link e a chave de cada ponte (os mesmos que você usa dentro de cada app, em Ajustes → Nuvem). Eles ficam guardados <strong>só neste aparelho</strong> e nunca entram em backup nem em exportação.</p>
+        <label class="conn-label" for="connSalarioUrl">🌳 Ponte do Salário — link do script</label>
+        <input type="url" id="connSalarioUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connSalarioKey">Chave secreta do Salário</label>
+        <input type="text" id="connSalarioKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connIrUrl">📊 Ponte do IR — link do script</label>
+        <input type="url" id="connIrUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connIrKey">Chave secreta do IR</label>
+        <input type="text" id="connIrKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connRecibosUrl">🧾 Ponte do Recibos — link do script</label>
+        <input type="url" id="connRecibosUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connRecibosKey">Chave secreta do Recibos</label>
+        <input type="text" id="connRecibosKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+        <div class="conn-actions">
+          <button type="button" id="connSave" class="btn-accent">Salvar conexões</button>
+          <button type="button" id="syncNow" class="btn-ghost">↻ Sincronizar agora</button>
+        </div>
+        <p class="conn-status" id="connStatus"></p>
+        <hr class="sep">
+        <div class="conn-actions">
+          <button type="button" id="demoToggle" class="btn-ghost">Ver modo demonstração</button>
+        </div>
+        <p class="fineprint">Sem as pontes configuradas, os cartões mostram como conectar — ou use o modo demonstração para ver o desenho com dados fictícios.</p>
       </div>
-      <p class="conn-status" id="connStatus"></p>
-      <hr class="sep">
-      <div class="conn-actions">
-        <button type="button" id="demoToggle" class="btn-ghost">Ver modo demonstração</button>
-      </div>
-      <p class="fineprint">Sem as pontes configuradas, os cartões mostram como conectar — ou use o modo demonstração para ver o desenho com dados fictícios.</p>
     </div>
-  </section>
+  </div>
 
-  <!-- 6. COFRE -->
-  <section aria-label="Cofre de senhas" id="card-cofre">
-    <h2 class="sec-title">🔐 Cofre de senhas</h2>
-    <div class="glass-card">
-      <p class="fineprint top">As chaves das pontes ficam guardadas no <strong>app Senhas do iPhone</strong>, protegidas pelo Face ID. Guardados lá:</p>
-      <p class="fineprint">🔑 Salro – Ponte Salário<br>🔑 Salro – Ponte IR<br>🔑 Salro – Ponte Recibos</p>
-      <div class="conn-actions">
-        <a class="btn-accent btn-link" href="shortcuts://run-shortcut?name=Abrir%20Senhas">Abrir o app Senhas</a>
+  <!-- PAINEL: COFRE -->
+  <div class="sheet" id="sheet-cofre" hidden role="dialog" aria-label="Cofre de senhas">
+    <div class="sheet-head"><h2>🔐 Cofre de senhas</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
+      <div class="glass-card">
+        <p class="fineprint top">As chaves das pontes ficam guardadas no <strong>app Senhas do iPhone</strong>, protegidas pelo Face ID. Guardados lá:</p>
+        <p class="fineprint">🔑 Salro – Ponte Salário<br>🔑 Salro – Ponte IR<br>🔑 Salro – Ponte Recibos</p>
+        <div class="conn-actions">
+          <a class="btn-accent btn-link" href="shortcuts://run-shortcut?name=Abrir%20Senhas">Abrir o app Senhas</a>
+        </div>
+        <p class="fineprint">O botão usa um atalho seu chamado <strong>“Abrir Senhas”</strong> (cria uma única vez: app Atalhos → + → ação “Abrir App” → escolher <strong>Senhas</strong> → renomear o atalho para “Abrir Senhas”). A Central nunca lê suas senhas — o botão só abre o app.</p>
       </div>
-      <p class="fineprint">O botão usa um atalho seu chamado <strong>“Abrir Senhas”</strong> (cria uma única vez: app Atalhos → + → ação “Abrir App” → escolher <strong>Senhas</strong> → renomear o atalho para “Abrir Senhas”). A Central nunca lê suas senhas — o botão só abre o app.</p>
     </div>
-  </section>
-
-  <footer class="foot">
-    <p>Salro Central · os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) são mostrados separados, sem conversão.</p>
-  </footer>
+  </div>
 </main>
 
 <script src="app.js"></script>

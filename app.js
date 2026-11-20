@@ -602,16 +602,49 @@ if (typeof document !== 'undefined') (() => {
     $('hubNodeChecklistValue').textContent = pending === 0 ? 'tudo feito ✓' : pending + (pending === 1 ? ' pendente' : ' pendentes');
   }
 
-  /* ---------- Hub: nós → cartões ---------- */
+  /* ---------- Painéis (sheets) e menu lateral ---------- */
+  function showBackdrop(on) { $('backdrop').hidden = !on; }
+  function openSheet(id) {
+    const s = document.getElementById(id);
+    if (!s) return;
+    closeDrawer();
+    document.querySelectorAll('.sheet').forEach((x) => { x.classList.remove('open'); x.hidden = true; });
+    s.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('open')));
+    showBackdrop(true);
+    document.body.classList.add('no-scroll');
+  }
+  function closeSheets() {
+    document.querySelectorAll('.sheet.open').forEach((x) => x.classList.remove('open'));
+    setTimeout(() => document.querySelectorAll('.sheet').forEach((x) => { x.hidden = true; }), 260);
+    if (!$('drawer').classList.contains('open')) { showBackdrop(false); document.body.classList.remove('no-scroll'); }
+  }
+  function openDrawer() {
+    $('drawer').classList.add('open');
+    $('drawer').setAttribute('aria-hidden', 'false');
+    showBackdrop(true);
+    document.body.classList.add('no-scroll');
+  }
+  function closeDrawer() {
+    $('drawer').classList.remove('open');
+    $('drawer').setAttribute('aria-hidden', 'true');
+  }
+  function wirePanels() {
+    $('menuBtn').addEventListener('click', openDrawer);
+    $('drawerClose').addEventListener('click', () => { closeDrawer(); showBackdrop(false); document.body.classList.remove('no-scroll'); });
+    document.querySelectorAll('.drawer-item[data-sheet]').forEach((b) => {
+      b.addEventListener('click', () => openSheet(b.getAttribute('data-sheet')));
+    });
+    $('drawerSync').addEventListener('click', () => { closeDrawer(); showBackdrop(false); document.body.classList.remove('no-scroll'); syncAll(true); });
+    document.querySelectorAll('.sheet [data-close]').forEach((b) => b.addEventListener('click', closeSheets));
+    $('backdrop').addEventListener('click', () => { closeSheets(); closeDrawer(); showBackdrop(false); document.body.classList.remove('no-scroll'); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSheets(); closeDrawer(); showBackdrop(false); document.body.classList.remove('no-scroll'); } });
+  }
+
+  /* ---------- Hub: nós → painéis ---------- */
   function wireHub() {
     document.querySelectorAll('.hub-node').forEach((n) => {
-      const go = () => {
-        const t = document.getElementById(n.getAttribute('data-target'));
-        if (!t) return;
-        t.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const card = t.classList.contains('glass-card') ? t : t.querySelector('.glass-card');
-        if (card) { card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 1600); }
-      };
+      const go = () => openSheet(n.getAttribute('data-target'));
       n.addEventListener('click', go);
       n.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     });
@@ -625,6 +658,7 @@ if (typeof document !== 'undefined') (() => {
     $('todayLine').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     buildWorld();
     wireHub();
+    wirePanels();
     renderChecklist();
 
     // conexões: preencher e salvar
