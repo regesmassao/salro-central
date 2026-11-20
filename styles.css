@@ -34,7 +34,11 @@ main{max-width:560px;margin:0 auto;padding:0 16px 32px}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ---------- Cabeçalho / hub ---------- */
-.hub-head{max-width:560px;margin:0 auto;padding:22px 16px 2px;min-height:100dvh;display:flex;flex-direction:column}
+.hub-head{max-width:560px;margin:0 auto;padding:18px 10px 6px;min-height:100dvh;display:flex;flex-direction:column}
+.hub-map-wrap{flex:1;display:flex;align-items:center;width:100%}
+@media (max-width:759px){
+  .hub-title h1{font-size:27px}
+}
 .hub-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .hub-title-text{flex:1;min-width:0}
 .menu-btn{
@@ -48,6 +52,7 @@ main{max-width:560px;margin:0 auto;padding:0 16px 32px}
 @media (min-width:760px){
   .hub-head{max-width:1020px;padding:30px 28px 8px}
   .hub-title h1{font-size:38px}
+  .hub-map-wrap{display:block}
   #hubSvg{max-width:940px;margin-left:auto;margin-right:auto}
 }
 .hub-title h1{margin:0;font-size:31px;font-weight:800;letter-spacing:.4px;color:var(--paper)}
@@ -64,7 +69,7 @@ main{max-width:560px;margin:0 auto;padding:0 16px 32px}
   margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);font-size:13px;line-height:1.45;
   background:rgba(205,146,100,.16);border:1px solid rgba(205,146,100,.55);color:var(--cream);
 }
-#hubSvg{width:100%;height:auto;display:block;margin-top:auto;margin-bottom:auto}
+#hubSvg{width:100%;height:auto;display:block}
 #worldDots circle{fill:var(--cream);opacity:.19;r:1.05}
 #worldDots circle.jp{
   fill:var(--copper);opacity:1;r:1.45;
