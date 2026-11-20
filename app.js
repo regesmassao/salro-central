@@ -176,7 +176,7 @@ if (typeof document !== 'undefined') (() => {
     irUrl: 'central-conn-ir-url', irKey: 'central-conn-ir-key',
     recUrl: 'central-recibosUrl', recKey: 'central-recibosKey',
     cacheSal: 'central-cache-salario', cacheIr: 'central-cache-ir', cacheRec: 'central-cache-recibos',
-    checklist: 'central-checklist', demo: 'central-demo'
+    checklist: 'central-checklist', demo: 'central-demo', remessas: 'central-remessas'
   };
   const store = {
     get(k, fb) { try { const v = localStorage.getItem(k); return v == null ? fb : JSON.parse(v); } catch (e) { return fb; } },
@@ -419,6 +419,22 @@ if (typeof document !== 'undefined') (() => {
     const p = String(iso).split('-');
     return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(iso);
   }
+  function daysUntil(iso) {
+    if (!iso) return null;
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return null;
+    return Math.round((d - t) / 86400000);
+  }
+  function setNodeAlert(target, on, badgeId, badgeTextId, count) {
+    const g = document.querySelector('.hub-node[data-target="' + target + '"]');
+    if (g) g.classList.toggle('node-alert', !!on);
+    const b = badgeId ? $(badgeId) : null;
+    if (b) {
+      b.classList.toggle('show', !!count);
+      if (count) $(badgeTextId).textContent = String(count);
+    }
+  }
   function renderRecibos(state) {
     const val = $('hubRecibosValue'), sub = $('hubRecibosSub'), sync = $('hubRecibosSync'),
       node = $('hubNodeRecibosValue'), list = $('hubRecibosBills'),
@@ -429,6 +445,7 @@ if (typeof document !== 'undefined') (() => {
       list.innerHTML = '';
       gastoCard.classList.add('muted'); contasCard.classList.add('muted');
       kContas.classList.remove('danger');
+      setNodeAlert('sheet-recibos', false, 'hubBadgeRecibos', 'hubBadgeRecibosText', 0);
     };
     if (!state || state.status === 'none') {
       reset();
@@ -457,6 +474,9 @@ if (typeof document !== 'undefined') (() => {
       return;
     }
     const s = SalroCalc.recibosSummary(resp.data, new Date());
+    const soonDays = s.nextDue && s.nextDue.due ? daysUntil(s.nextDue.due) : null;
+    setNodeAlert('sheet-recibos', s.overdueCount > 0 || (soonDays !== null && soonDays <= 3),
+      'hubBadgeRecibos', 'hubBadgeRecibosText', s.overdueCount);
     gastoCard.classList.remove('muted'); contasCard.classList.remove('muted');
     val.textContent = SalroCalc.fmtJPY(s.monthTotal);
     node.textContent = SalroCalc.fmtJPY(s.monthTotal);
@@ -525,6 +545,7 @@ if (typeof document !== 'undefined') (() => {
     pill.textContent = 'sincronizado · ' + new Date(latest).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     pill.hidden = false;
   }
+  let lastEff = null;
   function renderAll(status) {
     let eff = status;
     if (isDemo()) {
@@ -538,6 +559,8 @@ if (typeof document !== 'undefined') (() => {
     renderSalario(eff.sal);
     renderIr(eff.ir);
     renderRecibos(eff.rec);
+    lastEff = eff;
+    renderHoje();
     renderSyncPill(eff);
     $('demoBanner').hidden = !isDemo();
     $('demoToggle').textContent = isDemo() ? 'Sair do modo demonstração' : 'Ver modo demonstração';
@@ -600,6 +623,95 @@ if (typeof document !== 'undefined') (() => {
     });
     const pending = items.filter((i) => !i.done).length;
     $('hubNodeChecklistValue').textContent = pending === 0 ? 'tudo feito ✓' : pending + (pending === 1 ? ' pendente' : ' pendentes');
+    const urgent = items.filter((i) => !i.done && i.due && daysUntil(i.due) !== null && daysUntil(i.due) <= 3).length;
+    setNodeAlert('sheet-checklist', urgent > 0, 'hubBadgeChecklist', 'hubBadgeChecklistText', urgent);
+    renderHoje();
+  }
+
+  /* ---------- Painel Hoje ---------- */
+  function renderHoje() {
+    const al = $('hojeAlertas'), rs = $('hojeResumo');
+    if (!al || !rs) return;
+    const lines = [];
+    loadChecklist().filter((i) => !i.done && i.due).forEach((i) => {
+      const du = daysUntil(i.due);
+      if (du !== null && du <= 7) {
+        lines.push({ when: du, html: '<div class="bill-row' + (du < 0 ? ' overdue' : '') + '"><span class="bill-name">' + escHtml(i.text) + '</span><span class="bill-meta">' + (du < 0 ? 'venceu ' : 'vence ') + fmtDateShort(i.due) + '</span></div>' });
+      }
+    });
+    const recState = lastEff && lastEff.rec;
+    const recOk = recState && recState.status === 'ok' && recState.resp && recState.resp.exists && recState.resp.data && Array.isArray(recState.resp.data.items);
+    let recSum = null;
+    if (recOk) {
+      recSum = SalroCalc.recibosSummary(recState.resp.data, new Date());
+      recSum.bills.forEach((b) => {
+        if (!b.due) return;
+        const du = daysUntil(b.due);
+        if (du !== null && du <= 7) {
+          lines.push({ when: du, html: '<div class="bill-row' + (b.overdue ? ' overdue' : '') + '"><span class="bill-name">' + escHtml(b.store || 'Conta') + '</span><span class="bill-meta">' + SalroCalc.fmtJPY(b.amount) + ' · ' + (b.overdue ? 'venceu ' : 'vence ') + fmtDateShort(b.due) + '</span></div>' });
+        }
+      });
+    }
+    lines.sort((a, b) => a.when - b.when);
+    al.innerHTML = lines.length ? lines.map((l) => l.html).join('') : '<p class="chart-empty">Nada vencendo nos próximos 7 dias 🎉</p>';
+    const parts = [];
+    const salState = lastEff && lastEff.sal;
+    if (salState && salState.status === 'ok' && salState.resp && salState.resp.exists && salState.resp.data && salState.resp.data.data) {
+      const m = SalroCalc.msjMonth(salState.resp.data.data, new Date());
+      if (m.anySnap) parts.push('<div class="bill-row"><span class="bill-name">🌳 Salário do mês (casal)</span><span class="bill-meta">' + SalroCalc.fmtJPY(m.totalNet) + ' líq.</span></div>');
+      else if (m.totalDays) parts.push('<div class="bill-row"><span class="bill-name">🌳 Salário do mês</span><span class="bill-meta">' + m.totalDays + ' dias lançados</span></div>');
+    }
+    if (recSum) parts.push('<div class="bill-row"><span class="bill-name">🧾 Gasto no mês (Recibos)</span><span class="bill-meta">' + SalroCalc.fmtJPY(recSum.monthTotal) + '</span></div>');
+    const irState = lastEff && lastEff.ir;
+    if (irState && irState.status === 'ok' && irState.resp && irState.resp.exists && irState.resp.data) {
+      const si = SalroCalc.irSummary(irState.resp.data);
+      parts.push('<div class="bill-row"><span class="bill-name">📊 Proventos · 12 meses</span><span class="bill-meta">' + SalroCalc.fmtBRL(si.total12) + '</span></div>');
+    }
+    const rems = loadRemessas();
+    if (rems.length) {
+      const tj = rems.reduce((s2, r) => s2 + (Number(r.jpy) || 0), 0);
+      parts.push('<div class="bill-row"><span class="bill-name">✈️ Remessas anotadas</span><span class="bill-meta">' + SalroCalc.fmtJPY(tj) + ' enviados</span></div>');
+    }
+    rs.innerHTML = parts.length ? parts.join('') : '<p class="chart-empty">Configure as pontes em ⚙️ Conexões para ver o resumo.</p>';
+  }
+
+  /* ---------- Remessas (diário local) ---------- */
+  function loadRemessas() {
+    const v = store.get(LS.remessas, []);
+    return Array.isArray(v) ? v.filter((r) => r && r.date && isFinite(Number(r.jpy)) && isFinite(Number(r.brl))) : [];
+  }
+  function saveRemessas(list) { store.set(LS.remessas, list); renderRemessas(); renderHoje(); }
+  function fmtJpyCompact(v) {
+    if (v >= 10000) return '¥ ' + Math.round(v / 1000).toLocaleString('pt-BR') + ' mil';
+    return SalroCalc.fmtJPY(v);
+  }
+  function renderRemessas() {
+    const ul = $('remList'), box = $('remResumo'), pill = $('hubNodeRemessasValue');
+    if (!ul || !box || !pill) return;
+    const list = loadRemessas().slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (!list.length) {
+      box.innerHTML = '<p class="chart-empty">Nenhuma remessa anotada ainda.</p>';
+      ul.innerHTML = '';
+      pill.textContent = '—';
+      return;
+    }
+    const tj = list.reduce((s, r) => s + Number(r.jpy || 0), 0);
+    const tb = list.reduce((s, r) => s + Number(r.brl || 0), 0);
+    const taxa = tj > 0 ? (tb / tj * 1000) : 0;
+    box.innerHTML =
+      '<div class="bill-row"><span class="bill-name">Total enviado</span><span class="bill-meta">' + SalroCalc.fmtJPY(tj) + '</span></div>' +
+      '<div class="bill-row"><span class="bill-name">Total recebido</span><span class="bill-meta">' + SalroCalc.fmtBRL(tb) + '</span></div>' +
+      '<div class="bill-row"><span class="bill-name">Taxa média efetiva</span><span class="bill-meta">R$ ' + taxa.toFixed(2).replace('.', ',') + ' por ¥ 1.000</span></div>';
+    ul.innerHTML = list.map((r) => {
+      const t = Number(r.jpy) > 0 ? (Number(r.brl) / Number(r.jpy) * 1000) : 0;
+      return '<li class="check-item"><div class="check-body"><div class="check-text"></div>' +
+        '<div class="check-due">' + SalroCalc.fmtJPY(r.jpy) + ' → ' + SalroCalc.fmtBRL(r.brl) + ' · R$ ' + t.toFixed(2).replace('.', ',') + '/¥1.000</div></div>' +
+        '<button type="button" class="check-del" data-rem-del="' + r.id + '" aria-label="Apagar remessa">✕</button></li>';
+    }).join('');
+    ul.querySelectorAll('.check-item').forEach((li, i) => {
+      li.querySelector('.check-text').textContent = fmtDateShort(list[i].date);
+    });
+    pill.textContent = fmtJpyCompact(tj);
   }
 
   /* ---------- Painéis (sheets) e menu lateral ---------- */
@@ -735,6 +847,27 @@ if (typeof document !== 'undefined') (() => {
         e.target.value = '';
       };
       rd.readAsText(f);
+    });
+
+    // remessas: anotar / apagar
+    const nowD = new Date();
+    $('remDate').value = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
+    renderRemessas();
+    $('remForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const date = $('remDate').value;
+      const jpy = Number($('remJpy').value);
+      const brl = Number($('remBrl').value);
+      if (!date || !(jpy > 0) || !(brl >= 0)) return;
+      const list = loadRemessas();
+      list.push({ id: 'r' + Date.now().toString(36) + Math.floor(Math.random() * 999), date, jpy, brl });
+      saveRemessas(list);
+      $('remJpy').value = ''; $('remBrl').value = '';
+    });
+    $('remList').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-rem-del]');
+      if (!b) return;
+      saveRemessas(loadRemessas().filter((r) => r.id !== b.getAttribute('data-rem-del')));
     });
 
     // primeira pintura a partir do cache, depois sincroniza
