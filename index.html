@@ -44,7 +44,8 @@
     <path class="hub-arc" d="M 314,80 Q 328,88 331,95"/>
     <path class="hub-arc" d="M 284,80 Q 270,94 265,99"/>
     <path class="hub-arc" d="M 280,84 Q 235,138 192,150"/>
-    <g class="hub-center">
+    <g class="hub-center hub-node" data-target="sheet-hoje" tabindex="0" role="button" aria-label="Abrir o painel Hoje">
+      <circle cx="298" cy="60" r="42" class="map-node-hit"/>
       <circle cx="298" cy="60" r="36" class="hub-center-halo"/>
       <circle cx="298" cy="60" r="25" class="hub-center-circle"/>
       <g transform="translate(298,61)" stroke="#091835" stroke-width="2.4" fill="none" stroke-linecap="round">
@@ -81,6 +82,7 @@
       <text x="336" y="134" class="map-node-name">Recibos</text>
       <rect class="map-node-pill" x="300" y="135.5" width="60" height="14.5" rx="7.25"/>
       <text x="336" y="145" class="map-node-value" id="hubNodeRecibosValue">—</text>
+      <g class="node-badge" id="hubBadgeRecibos"><circle cx="351" cy="89" r="8.5"/><text x="351" y="92.5" id="hubBadgeRecibosText">!</text></g>
     </g>
     <g class="hub-node" data-target="sheet-checklist" tabindex="0" role="button" aria-label="Abrir o checklist Minha vida no Japão">
       <circle cx="258" cy="108" r="27" class="map-node-hit"/>
@@ -90,6 +92,7 @@
       <text x="258" y="138" class="map-node-name">Checklist</text>
       <rect class="map-node-pill" x="219" y="139" width="78" height="14.5" rx="7.25"/>
       <text x="258" y="149" class="map-node-value" id="hubNodeChecklistValue">—</text>
+      <g class="node-badge" id="hubBadgeChecklist"><circle cx="273" cy="93" r="8.5"/><text x="273" y="96.5" id="hubBadgeChecklistText">!</text></g>
     </g>
     <g class="hub-node" data-target="sheet-cofre" tabindex="0" role="button" aria-label="Abrir o cofre de senhas">
       <circle cx="170" cy="156" r="27" class="map-node-hit"/>
@@ -99,6 +102,15 @@
       <text x="170" y="186" class="map-node-name">Senhas</text>
       <rect class="map-node-pill" x="138" y="187.5" width="64" height="14.5" rx="7.25"/>
       <text x="170" y="197" class="map-node-value">3 pontes</text>
+    </g>
+    <g class="hub-node" data-target="sheet-remessas" tabindex="0" role="button" aria-label="Abrir o diário de remessas">
+      <circle cx="168" cy="30" r="27" class="map-node-hit"/>
+      <circle cx="168" cy="30" r="19" class="map-node-halo"/>
+      <circle cx="168" cy="30" r="13" class="map-node-circle"/>
+      <text x="168" y="34.5" class="map-node-emoji">✈️</text>
+      <text x="168" y="60" class="map-node-name">Remessas</text>
+      <rect class="map-node-pill" x="134" y="61.5" width="68" height="14.5" rx="7.25"/>
+      <text x="168" y="71" class="map-node-value" id="hubNodeRemessasValue">—</text>
     </g>
   </svg>
   </div>
@@ -111,7 +123,9 @@
     <span class="drawer-title"><span class="wm-spark" aria-hidden="true">✦</span> Salro Central</span>
     <button type="button" class="sheet-close" id="drawerClose" aria-label="Fechar o menu">✕</button>
   </div>
+  <button type="button" class="drawer-item" data-sheet="sheet-hoje">📅 Hoje — atenção e resumo</button>
   <button type="button" class="drawer-item" data-sheet="sheet-salario">🌳 Salário</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-remessas">✈️ Remessas Japão → Brasil</button>
   <button type="button" class="drawer-item" data-sheet="sheet-ir">📊 Meu IR · Investimentos</button>
   <button type="button" class="drawer-item" data-sheet="sheet-recibos">🧾 Recibos</button>
   <button type="button" class="drawer-item" data-sheet="sheet-checklist">✅ Checklist — Minha vida no Japão</button>
@@ -124,6 +138,21 @@
 <div id="backdrop" class="backdrop" hidden></div>
 
 <main>
+  <!-- PAINEL: HOJE -->
+  <div class="sheet" id="sheet-hoje" hidden role="dialog" aria-label="Hoje">
+    <div class="sheet-head"><h2>📅 Hoje</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
+      <div class="glass-card">
+        <h3 class="card-title">⚠ Precisa de atenção</h3>
+        <div id="hojeAlertas"><p class="chart-empty">Carregando…</p></div>
+      </div>
+      <div class="glass-card">
+        <h3 class="card-title">✦ Seu mês em resumo</h3>
+        <div id="hojeResumo"><p class="chart-empty">Carregando…</p></div>
+      </div>
+    </div>
+  </div>
+
   <!-- PAINEL: SALÁRIO -->
   <div class="sheet" id="sheet-salario" hidden role="dialog" aria-label="Salário">
     <div class="sheet-head"><h2>🌳 Salário</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
@@ -188,6 +217,29 @@
         <div class="kpi-label">📄 Contas a pagar · Recibos (¥)</div>
         <div class="kpi-value" id="kpiRecibosContas">—</div>
         <div class="kpi-sub" id="kpiRecibosContasSub">ponte não configurada</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL: REMESSAS -->
+  <div class="sheet" id="sheet-remessas" hidden role="dialog" aria-label="Remessas Japão para o Brasil">
+    <div class="sheet-head"><h2>✈️ Remessas Japão → Brasil</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
+      <div class="glass-card">
+        <div id="remResumo"><p class="chart-empty">Nenhuma remessa anotada ainda.</p></div>
+        <ul id="remList" class="check-list"></ul>
+        <form id="remForm" class="rem-form">
+          <label class="conn-label" for="remDate">Data</label>
+          <input type="date" id="remDate" required>
+          <label class="conn-label" for="remJpy">Enviado (¥)</label>
+          <input type="number" id="remJpy" inputmode="numeric" min="1" step="1" placeholder="ex.: 100000" required>
+          <label class="conn-label" for="remBrl">Recebido (R$)</label>
+          <input type="number" id="remBrl" inputmode="decimal" min="0" step="0.01" placeholder="ex.: 3400,00" required>
+          <div class="conn-actions">
+            <button type="submit" class="btn-accent">Anotar remessa</button>
+          </div>
+        </form>
+        <p class="fineprint">Diário das suas remessas (Wise): fica salvo só neste aparelho. A taxa mostrada é a efetiva de cada envio — quanto de real entrou por ¥ 1.000 enviados.</p>
       </div>
     </div>
   </div>

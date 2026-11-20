@@ -88,6 +88,12 @@ main{max-width:560px;margin:0 auto;padding:0 16px 32px}
 }
 .hub-node{cursor:pointer;outline:none}
 .map-node-hit{fill:rgba(0,0,0,0);pointer-events:all}
+.hub-node.node-alert .map-node-halo{fill:rgba(214,69,69,.40);animation:haloPulse 1.1s ease-in-out infinite}
+.node-badge{display:none}
+.node-badge.show{display:block}
+.node-badge circle{fill:#d64545;stroke:#091835;stroke-width:1.2}
+.node-badge text{fill:#fff;font-size:9px;font-weight:800;text-anchor:middle}
+.rem-form .conn-label:first-child{margin-top:4px}
 .map-node-halo{fill:rgba(205,146,100,.20);transform-box:fill-box;transform-origin:center;animation:haloPulse 2.8s ease-in-out infinite}
 g.hub-node:nth-of-type(4) .map-node-halo{animation-delay:.7s}
 g.hub-node:nth-of-type(5) .map-node-halo{animation-delay:1.4s}
