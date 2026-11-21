@@ -84,6 +84,15 @@
       <text x="336" y="145" class="map-node-value" id="hubNodeRecibosValue">—</text>
       <g class="node-badge" id="hubBadgeRecibos"><circle cx="351" cy="89" r="8.5"/><text x="351" y="92.5" id="hubBadgeRecibosText">!</text></g>
     </g>
+    <g class="hub-node" data-target="sheet-vendas" tabindex="0" role="button" aria-label="Abrir o painel do app Salro Vendas">
+      <circle cx="92" cy="146" r="27" class="map-node-hit"/>
+      <circle cx="92" cy="146" r="19" class="map-node-halo"/>
+      <circle cx="92" cy="146" r="13" class="map-node-circle"/>
+      <text x="92" y="150.5" class="map-node-emoji">💰</text>
+      <text x="92" y="176" class="map-node-name">Vendas</text>
+      <rect class="map-node-pill" x="60" y="177.5" width="64" height="14.5" rx="7.25"/>
+      <text x="92" y="187" class="map-node-value" id="hubNodeVendasValue">—</text>
+    </g>
     <g class="hub-node" data-target="sheet-checklist" tabindex="0" role="button" aria-label="Abrir o checklist Minha vida no Japão">
       <circle cx="258" cy="108" r="27" class="map-node-hit"/>
       <circle cx="258" cy="108" r="19" class="map-node-halo"/>
@@ -101,7 +110,7 @@
       <text x="170" y="160.5" class="map-node-emoji">🔐</text>
       <text x="170" y="186" class="map-node-name">Senhas</text>
       <rect class="map-node-pill" x="138" y="187.5" width="64" height="14.5" rx="7.25"/>
-      <text x="170" y="197" class="map-node-value">3 pontes</text>
+      <text x="170" y="197" class="map-node-value">4 pontes</text>
     </g>
     <g class="hub-node" data-target="sheet-remessas" tabindex="0" role="button" aria-label="Abrir o diário de remessas">
       <circle cx="168" cy="30" r="27" class="map-node-hit"/>
@@ -128,6 +137,7 @@
   <button type="button" class="drawer-item" data-sheet="sheet-remessas">✈️ Remessas Japão → Brasil</button>
   <button type="button" class="drawer-item" data-sheet="sheet-ir">📊 Meu IR · Investimentos</button>
   <button type="button" class="drawer-item" data-sheet="sheet-recibos">🧾 Recibos</button>
+  <button type="button" class="drawer-item" data-sheet="sheet-vendas">💰 Vendas</button>
   <button type="button" class="drawer-item" data-sheet="sheet-checklist">✅ Checklist — Minha vida no Japão</button>
   <button type="button" class="drawer-item" data-sheet="sheet-cofre">🔐 Cofre de senhas</button>
   <button type="button" class="drawer-item" data-sheet="sheet-conexoes">⚙️ Conexões</button>
@@ -221,6 +231,34 @@
     </div>
   </div>
 
+  <!-- PAINEL: VENDAS -->
+  <div class="sheet" id="sheet-vendas" hidden role="dialog" aria-label="Salro Vendas">
+    <div class="sheet-head"><h2>💰 Vendas</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
+    <div class="sheet-body">
+      <article class="glass-card app-card" id="card-vendas">
+        <div class="app-card-top"><span class="app-emoji">💰</span><h3>Salro Vendas</h3><span class="app-sync" id="hubVendasSync"></span></div>
+        <div class="app-value" id="hubVendasValue">—</div>
+        <div class="app-sub" id="hubVendasSub">Salro Vendas</div>
+        <a class="app-open" href="https://regesmassao.github.io/salro-vendas/" target="_blank" rel="noopener">Abrir o app →</a>
+      </article>
+      <div class="glass-card kpi-card muted">
+        <div class="kpi-label">💰 Vendas do mês (R$)</div>
+        <div class="kpi-value" id="kpiVendasMes">—</div>
+        <div class="kpi-sub" id="kpiVendasMesSub">ponte não configurada</div>
+      </div>
+      <div class="glass-card kpi-card muted">
+        <div class="kpi-label">💰 Lucro líquido do mês (R$)</div>
+        <div class="kpi-value" id="kpiVendasLucro">—</div>
+        <div class="kpi-sub" id="kpiVendasLucroSub">ponte não configurada</div>
+      </div>
+      <div class="glass-card kpi-card muted">
+        <div class="kpi-label">💰 Total geral · lucro (R$)</div>
+        <div class="kpi-value" id="kpiVendasTotal">—</div>
+        <div class="kpi-sub" id="kpiVendasTotalSub">ponte não configurada</div>
+      </div>
+    </div>
+  </div>
+
   <!-- PAINEL: REMESSAS -->
   <div class="sheet" id="sheet-remessas" hidden role="dialog" aria-label="Remessas Japão para o Brasil">
     <div class="sheet-head"><h2>✈️ Remessas Japão → Brasil</h2><button type="button" class="sheet-close" data-close aria-label="Fechar">✕</button></div>
@@ -282,6 +320,10 @@
         <input type="url" id="connRecibosUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
         <label class="conn-label" for="connRecibosKey">Chave secreta do Recibos</label>
         <input type="text" id="connRecibosKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connVendasUrl">💰 Ponte do Vendas — link do script</label>
+        <input type="url" id="connVendasUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connVendasKey">Chave secreta do Vendas</label>
+        <input type="text" id="connVendasKey" placeholder="chave…" autocomplete="off" spellcheck="false">
         <div class="conn-actions">
           <button type="button" id="connSave" class="btn-accent">Salvar conexões</button>
           <button type="button" id="syncNow" class="btn-ghost">↻ Sincronizar agora</button>
@@ -302,7 +344,7 @@
     <div class="sheet-body">
       <div class="glass-card">
         <p class="fineprint top">As chaves das pontes ficam guardadas no <strong>app Senhas do iPhone</strong>, protegidas pelo Face ID. Guardados lá:</p>
-        <p class="fineprint">🔑 Salro – Ponte Salário<br>🔑 Salro – Ponte IR<br>🔑 Salro – Ponte Recibos</p>
+        <p class="fineprint">🔑 Salro – Ponte Salário<br>🔑 Salro – Ponte IR<br>🔑 Salro – Ponte Recibos<br>🔑 Salro – Ponte Vendas</p>
         <div class="conn-actions">
           <a class="btn-accent btn-link" href="shortcuts://run-shortcut?name=Abrir%20Senhas">Abrir o app Senhas</a>
         </div>
