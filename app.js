@@ -170,6 +170,9 @@ const SalroCalc = (() => {
      Sem resumo, cai para a soma da lista de vendas (gross em reais). */
   function vendasSummary(data) {
     if (!data || typeof data !== 'object') return null;
+    /* A ponte devolve o envelope do app ({app, version, exportedAt, data:{...}});
+       desce um nível quando o conteúdo vem embrulhado e ainda não está no formato interno. */
+    if (data.data && typeof data.data === 'object' && !data.resumo && !Array.isArray(data.vendas)) data = data.data;
     const num = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
     const pick = (obj, keys) => {
       if (!obj || typeof obj !== 'object') return 0;
@@ -178,7 +181,9 @@ const SalroCalc = (() => {
     };
     const r = (data.resumo && typeof data.resumo === 'object') ? data.resumo : null;
     if (r) {
-      const mesB = r.mes || r.month || r.mensal || {};
+      /* O app real guarda o balde do mês em resumo.vendasMes (resumo.mes é a
+         string 'AAAA-MM'); demo/fixtures antigos usam resumo.mes como objeto. */
+      const mesB = [r.vendasMes, r.mes, r.month, r.mensal].find((b) => b && typeof b === 'object') || {};
       const totB = r.totais || r.total || r.geral || {};
       return {
         hasResumo: true,
