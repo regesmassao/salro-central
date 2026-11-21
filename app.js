@@ -1,7 +1,8 @@
 'use strict';
 /* Salro Central — dashboard pessoal.
-   Lê SOMENTE os backups que os apps Salário, IR e Recibos guardam no
-   Drive (via as pontes Apps Script que o dono configura em ⚙️ Conexões).
+   Lê SOMENTE os backups que os apps Salário, IR, Recibos e Vendas
+   guardam no Drive (via as pontes Apps Script que o dono configura
+   em ⚙️ Conexões).
    Link e chave das pontes ficam só no localStorage deste aparelho —
    nunca no código, nunca em exportações. Os apps continuam
    independentes; aqui é só leitura. */
@@ -163,7 +164,47 @@ const SalroCalc = (() => {
     };
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, recibosSummary, parseSafe };
+  /* ---- Vendas: data = {vendas, despesas, saques, campanhas, config, resumo}
+     O resumo é calculado pelo próprio app Salro Vendas e os valores
+     monetários dele chegam em CENTAVOS inteiros — aqui só exibimos.
+     Sem resumo, cai para a soma da lista de vendas (gross em reais). */
+  function vendasSummary(data) {
+    if (!data || typeof data !== 'object') return null;
+    const num = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
+    const pick = (obj, keys) => {
+      if (!obj || typeof obj !== 'object') return 0;
+      for (const k of keys) if (obj[k] != null) return num(obj[k]);
+      return 0;
+    };
+    const r = (data.resumo && typeof data.resumo === 'object') ? data.resumo : null;
+    if (r) {
+      const mesB = r.mes || r.month || r.mensal || {};
+      const totB = r.totais || r.total || r.geral || {};
+      return {
+        hasResumo: true,
+        mes: {
+          qtd: pick(mesB, ['qtd', 'count', 'n', 'quantidade']),
+          bruto: pick(mesB, ['bruto', 'gross']) / 100,
+          liquido: pick(mesB, ['liquido', 'netPlataforma', 'liquidoPlataforma', 'net']) / 100,
+          reserva: pick(mesB, ['reserva']) / 100,
+          lucro: pick(mesB, ['lucro', 'profit']) / 100
+        },
+        totais: {
+          qtd: pick(totB, ['qtd', 'count', 'n', 'quantidade']),
+          bruto: pick(totB, ['bruto', 'gross']) / 100,
+          lucro: pick(totB, ['lucro', 'profit']) / 100
+        }
+      };
+    }
+    if (Array.isArray(data.vendas)) {
+      let brutoTotal = 0;
+      data.vendas.forEach((v) => { if (v && isFinite(Number(v.gross))) brutoTotal += Number(v.gross); });
+      return { hasResumo: false, qtdTotal: data.vendas.length, brutoTotal };
+    }
+    return null;
+  }
+
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, recibosSummary, vendasSummary, parseSafe };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -175,7 +216,9 @@ if (typeof document !== 'undefined') (() => {
     salUrl: 'central-conn-salario-url', salKey: 'central-conn-salario-key',
     irUrl: 'central-conn-ir-url', irKey: 'central-conn-ir-key',
     recUrl: 'central-recibosUrl', recKey: 'central-recibosKey',
+    venUrl: 'central-conn-vendas-url', venKey: 'central-conn-vendas-key',
     cacheSal: 'central-cache-salario', cacheIr: 'central-cache-ir', cacheRec: 'central-cache-recibos',
+    cacheVen: 'central-cache-vendas',
     checklist: 'central-checklist', demo: 'central-demo', remessas: 'central-remessas'
   };
   const store = {
@@ -188,9 +231,10 @@ if (typeof document !== 'undefined') (() => {
   const CONN_KEYS = {
     sal: { url: LS.salUrl, key: LS.salKey },
     ir: { url: LS.irUrl, key: LS.irKey },
-    rec: { url: LS.recUrl, key: LS.recKey }
+    rec: { url: LS.recUrl, key: LS.recKey },
+    ven: { url: LS.venUrl, key: LS.venKey }
   };
-  const CACHE_KEYS = { sal: LS.cacheSal, ir: LS.cacheIr, rec: LS.cacheRec };
+  const CACHE_KEYS = { sal: LS.cacheSal, ir: LS.cacheIr, rec: LS.cacheRec, ven: LS.cacheVen };
   const conn = (app) => {
     const k = CONN_KEYS[app];
     return {
@@ -295,10 +339,27 @@ if (typeof document !== 'undefined') (() => {
           { dueDate: isoDay(new Date(ref.getTime() + 9 * DAY)), paid: true })
       ]
     };
+    const venData = {
+      app: 'salro-vendas', version: 1, exportedAt: new Date().toISOString(),
+      vendas: [1, 2, 3].map((i) => ({
+        id: 'dv' + i, date: isoDay(ref), product: 'Miniguia — Chegada ao Japão sem perrengue (demo)',
+        channel: 'kiwify', gross: 47, txid: null, origin: 'manual', campaignId: null
+      })),
+      despesas: [], saques: [], campanhas: [],
+      config: { taxPct: 20 },
+      /* resumo como o app Vendas calcula: valores em CENTAVOS.
+         3 × R$ 47 na Kiwify: taxa 672/venda → líquido 4028,
+         reserva 20% = 806, lucro 3222 por venda. */
+      resumo: {
+        mes: { qtd: 3, bruto: 14100, liquido: 12084, reserva: 2418, lucro: 9666 },
+        totais: { qtd: 3, bruto: 14100, lucro: 9666 }
+      }
+    };
     return {
       sal: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: { app: 'demo', data: msjInner } },
       ir: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: irData },
-      rec: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: recData }
+      rec: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: recData },
+      ven: { ok: true, exists: true, updatedAt: new Date().toISOString(), data: venData }
     };
   }
 
@@ -503,6 +564,71 @@ if (typeof document !== 'undefined') (() => {
       : '';
   }
 
+  /* ---------- Render: Vendas ---------- */
+  function renderVendas(state) {
+    const val = $('hubVendasValue'), sub = $('hubVendasSub'), sync = $('hubVendasSync'),
+      node = $('hubNodeVendasValue'),
+      kMes = $('kpiVendasMes'), kMesSub = $('kpiVendasMesSub'),
+      kLuc = $('kpiVendasLucro'), kLucSub = $('kpiVendasLucroSub'),
+      kTot = $('kpiVendasTotal'), kTotSub = $('kpiVendasTotalSub');
+    const cards = [kMes, kLuc, kTot].map((el) => el.closest('.kpi-card'));
+    const setMuted = (on) => cards.forEach((c) => c.classList.toggle('muted', on));
+    const blank = (subText) => {
+      kMes.textContent = '—'; kMesSub.textContent = subText;
+      kLuc.textContent = '—'; kLucSub.textContent = subText;
+      kTot.textContent = '—'; kTotSub.textContent = subText;
+    };
+    if (!state || state.status === 'none') {
+      setMuted(true);
+      val.textContent = '—'; node.textContent = 'sem ponte';
+      sub.textContent = 'Configure a ponte do Vendas em ⚙️ Conexões para ver as vendas do mês.';
+      sync.textContent = ''; blank('ponte não configurada');
+      return;
+    }
+    if (state.status === 'error') {
+      setMuted(true);
+      val.textContent = '—'; node.textContent = 'erro';
+      sub.textContent = 'Não foi possível ler a nuvem — confira o link e a chave em ⚙️ Conexões.';
+      sync.textContent = ''; blank('erro de leitura');
+      return;
+    }
+    const resp = state.resp;
+    sync.textContent = fmtSync(resp.updatedAt);
+    const s = (resp.exists && resp.data) ? SalroCalc.vendasSummary(resp.data) : null;
+    if (!s) {
+      setMuted(true);
+      val.textContent = '—'; node.textContent = 'sem backup';
+      sub.textContent = 'A ponte respondeu, mas ainda não há backup na nuvem. Abra o app Salro Vendas e envie um backup.';
+      blank('sem backup na nuvem');
+      return;
+    }
+    setMuted(false);
+    if (s.hasResumo) {
+      val.textContent = SalroCalc.fmtBRL(s.mes.bruto);
+      node.textContent = SalroCalc.fmtBRL0(s.mes.lucro);
+      sub.textContent = 'vendas do mês · ' + s.mes.qtd + (s.mes.qtd === 1 ? ' venda' : ' vendas') +
+        ' · lucro ' + SalroCalc.fmtBRL(s.mes.lucro);
+      kMes.textContent = SalroCalc.fmtBRL(s.mes.bruto);
+      kMesSub.textContent = s.mes.qtd + (s.mes.qtd === 1 ? ' venda no mês' : ' vendas no mês') +
+        ' · líquido da plataforma ' + SalroCalc.fmtBRL(s.mes.liquido);
+      kLuc.textContent = SalroCalc.fmtBRL(s.mes.lucro);
+      kLucSub.textContent = 'reserva de imposto ' + SalroCalc.fmtBRL(s.mes.reserva) +
+        ' · líquido ' + SalroCalc.fmtBRL(s.mes.liquido);
+      kTot.textContent = SalroCalc.fmtBRL(s.totais.lucro);
+      kTotSub.textContent = s.totais.qtd + (s.totais.qtd === 1 ? ' venda' : ' vendas') +
+        ' · bruto ' + SalroCalc.fmtBRL(s.totais.bruto) + ' · lucro ' + SalroCalc.fmtBRL(s.totais.lucro);
+    } else {
+      val.textContent = SalroCalc.fmtBRL(s.brutoTotal);
+      node.textContent = SalroCalc.fmtBRL0(s.brutoTotal);
+      sub.textContent = s.qtdTotal + (s.qtdTotal === 1 ? ' venda' : ' vendas') + ' no backup · bruto ' +
+        SalroCalc.fmtBRL(s.brutoTotal) + ' (resumo detalhado vem do app Vendas)';
+      kMes.textContent = '—'; kMesSub.textContent = 'resumo detalhado vem do app Vendas';
+      kLuc.textContent = '—'; kLucSub.textContent = 'resumo detalhado vem do app Vendas';
+      kTot.textContent = SalroCalc.fmtBRL(s.brutoTotal);
+      kTotSub.textContent = s.qtdTotal + (s.qtdTotal === 1 ? ' venda' : ' vendas') + ' · bruto total (sem resumo do app)';
+    }
+  }
+
   /* ---------- Sincronização ---------- */
   async function fetchBridge(c) {
     const sep = c.url.indexOf('?') >= 0 ? '&' : '?';
@@ -534,7 +660,7 @@ if (typeof document !== 'undefined') (() => {
     if (!pill) return;
     if (isDemo()) { pill.textContent = '✦ demonstração'; pill.hidden = false; return; }
     let latest = null;
-    ['sal', 'ir', 'rec'].forEach((k) => {
+    ['sal', 'ir', 'rec', 'ven'].forEach((k) => {
       const s = st && st[k];
       if (s && s.status === 'ok' && s.resp && s.resp.updatedAt) {
         const t = new Date(s.resp.updatedAt).getTime();
@@ -553,12 +679,14 @@ if (typeof document !== 'undefined') (() => {
       eff = {
         sal: { status: 'ok', resp: demo.sal },
         ir: { status: 'ok', resp: demo.ir },
-        rec: { status: 'ok', resp: demo.rec }
+        rec: { status: 'ok', resp: demo.rec },
+        ven: { status: 'ok', resp: demo.ven }
       };
     }
     renderSalario(eff.sal);
     renderIr(eff.ir);
     renderRecibos(eff.rec);
+    renderVendas(eff.ven);
     lastEff = eff;
     renderHoje();
     renderSyncPill(eff);
@@ -569,13 +697,14 @@ if (typeof document !== 'undefined') (() => {
     const statusEl = $('connStatus');
     if (manual) statusEl.textContent = 'Sincronizando…';
     const status = {};
-    await Promise.all([syncApp('sal', status), syncApp('ir', status), syncApp('rec', status)]);
+    await Promise.all([syncApp('sal', status), syncApp('ir', status), syncApp('rec', status), syncApp('ven', status)]);
     renderAll(status);
     if (manual) {
       const parts = [];
       parts.push(hasConn('sal') ? (status.sal.status === 'ok' ? '<span class="ok">Salário ✓</span>' : '<span class="err">Salário: não foi possível ler — confira link e chave</span>') : 'Salário: ponte não configurada');
       parts.push(hasConn('ir') ? (status.ir.status === 'ok' ? '<span class="ok">IR ✓</span>' : '<span class="err">IR: não foi possível ler — confira link e chave</span>') : 'IR: ponte não configurada');
       parts.push(hasConn('rec') ? (status.rec.status === 'ok' ? '<span class="ok">Recibos ✓</span>' : '<span class="err">Recibos: não foi possível ler — confira link e chave</span>') : 'Recibos: ponte não configurada');
+      parts.push(hasConn('ven') ? (status.ven.status === 'ok' ? '<span class="ok">Vendas ✓</span>' : '<span class="err">Vendas: não foi possível ler — confira link e chave</span>') : 'Vendas: ponte não configurada');
       statusEl.innerHTML = parts.join(' · ');
     }
     window.__centralStatus = status;
@@ -666,6 +795,13 @@ if (typeof document !== 'undefined') (() => {
     if (irState && irState.status === 'ok' && irState.resp && irState.resp.exists && irState.resp.data) {
       const si = SalroCalc.irSummary(irState.resp.data);
       parts.push('<div class="bill-row"><span class="bill-name">📊 Proventos · 12 meses</span><span class="bill-meta">' + SalroCalc.fmtBRL(si.total12) + '</span></div>');
+    }
+    const venState = lastEff && lastEff.ven;
+    if (venState && venState.status === 'ok' && venState.resp && venState.resp.exists && venState.resp.data) {
+      const vs = SalroCalc.vendasSummary(venState.resp.data);
+      if (vs && vs.hasResumo) {
+        parts.push('<div class="bill-row"><span class="bill-name">💰 Vendas do mês</span><span class="bill-meta">' + vs.mes.qtd + (vs.mes.qtd === 1 ? ' venda' : ' vendas') + ' · lucro ' + SalroCalc.fmtBRL(vs.mes.lucro) + '</span></div>');
+      }
     }
     const rems = loadRemessas();
     if (rems.length) {
@@ -780,6 +916,8 @@ if (typeof document !== 'undefined') (() => {
     $('connIrKey').value = store.getRaw(LS.irKey, '');
     $('connRecibosUrl').value = store.getRaw(LS.recUrl, '');
     $('connRecibosKey').value = store.getRaw(LS.recKey, '');
+    $('connVendasUrl').value = store.getRaw(LS.venUrl, '');
+    $('connVendasKey').value = store.getRaw(LS.venKey, '');
     $('connSave').addEventListener('click', () => {
       store.setRaw(LS.salUrl, $('connSalarioUrl').value.trim());
       store.setRaw(LS.salKey, $('connSalarioKey').value.trim());
@@ -787,6 +925,8 @@ if (typeof document !== 'undefined') (() => {
       store.setRaw(LS.irKey, $('connIrKey').value.trim());
       store.setRaw(LS.recUrl, $('connRecibosUrl').value.trim());
       store.setRaw(LS.recKey, $('connRecibosKey').value.trim());
+      store.setRaw(LS.venUrl, $('connVendasUrl').value.trim());
+      store.setRaw(LS.venKey, $('connVendasKey').value.trim());
       if (isDemo()) store.setRaw(LS.demo, '');
       $('connStatus').textContent = 'Conexões salvas. Sincronizando…';
       syncAll(true);
@@ -871,7 +1011,7 @@ if (typeof document !== 'undefined') (() => {
     });
 
     // primeira pintura a partir do cache, depois sincroniza
-    renderAll({ sal: cachedState(LS.cacheSal), ir: cachedState(LS.cacheIr), rec: cachedState(LS.cacheRec) });
+    renderAll({ sal: cachedState(LS.cacheSal), ir: cachedState(LS.cacheIr), rec: cachedState(LS.cacheRec), ven: cachedState(LS.cacheVen) });
     syncAll(false);
 
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
