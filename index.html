@@ -143,7 +143,7 @@
   <button type="button" class="drawer-item" data-sheet="sheet-conexoes">⚙️ Conexões</button>
   <hr class="sep">
   <button type="button" class="drawer-item" id="drawerSync">↻ Sincronizar agora</button>
-  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.</p>
+  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.5 — agora com Salro Link 🔗</p>
 </nav>
 <div id="backdrop" class="backdrop" hidden></div>
 
@@ -334,6 +334,16 @@
           <button type="button" id="demoToggle" class="btn-ghost">Ver modo demonstração</button>
         </div>
         <p class="fineprint">Sem as pontes configuradas, os cartões mostram como conectar — ou use o modo demonstração para ver o desenho com dados fictícios.</p>
+      </div>
+      <div class="glass-card" id="linkCard">
+        <h3 class="link-title">🔗 Salro Link — Conectar minha IA</h3>
+        <p class="fineprint top">Gere o texto de conexão de um app e cole numa conversa com o <strong>seu</strong> assistente (Muse). Ele passa a ler os dados do app, lançar registros e te avisar — seguindo as regras de segurança que vão embutidas no texto. Cada app tem o seu texto, com a ponte dele.</p>
+        <div class="link-row"><span class="link-name">🌳 Salário</span><span class="link-state" data-link-state="sal"></span><button type="button" class="btn-ghost" data-link-copy="sal">Copiar texto</button></div>
+        <div class="link-row"><span class="link-name">📊 IR</span><span class="link-state" data-link-state="ir"></span><button type="button" class="btn-ghost" data-link-copy="ir">Copiar texto</button></div>
+        <div class="link-row"><span class="link-name">🧾 Recibos</span><span class="link-state" data-link-state="rec"></span><button type="button" class="btn-ghost" data-link-copy="rec">Copiar texto</button></div>
+        <div class="link-row"><span class="link-name">💰 Vendas</span><span class="link-state" data-link-state="ven"></span><button type="button" class="btn-ghost" data-link-copy="ven">Copiar texto</button></div>
+        <p class="conn-status" id="linkStatus"></p>
+        <p class="fineprint">⚠️ O texto contém a chave da ponte — ela é uma senha. Cole só no seu próprio assistente, nunca em grupos ou com outras pessoas.</p>
       </div>
     </div>
   </div>

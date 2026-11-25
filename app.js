@@ -209,7 +209,36 @@ const SalroCalc = (() => {
     return null;
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, recibosSummary, vendasSummary, parseSafe };
+  /* ---- Salro Link: texto de conexão que o dono cola no assistente dele ---- */
+  const LINK_APPS = {
+    sal: { nome: 'Salro Salário', dica: 'Os dados são um despejo das chaves internas do app (prefixo msj-); os meses fechados ficam nas chaves msj-v4-3-months-AAAA-MM e os dias nas chaves msj-v4-2-days-AAAA-MM-DD.' },
+    ir: { nome: 'Salro IR (Minha Declaração de IR)', dica: 'Os dados têm assets (ativos), operations (operações), histProventos (proventos por mês) e quotes (cotações manuais).' },
+    rec: { nome: 'Salro Recibos (Meus Recibos JP)', dica: 'Os dados têm items: a lista de recibos, contas com vencimento e promoções fotografados.' },
+    ven: { nome: 'Salro Vendas', dica: 'Os dados têm as vendas, despesas, saques e campanhas registradas no app, além de um resumo.' }
+  };
+  function linkPrompt(appKey, url, key) {
+    const app = LINK_APPS[appKey];
+    if (!app || !url || !key) return '';
+    return [
+      'Você agora está conectado ao meu app ' + app.nome + ' (padrão Salro Link). Meus dados ficam numa ponte na nuvem, no meu próprio Google Drive:',
+      '- Link da ponte: ' + url,
+      '- Chave: ' + key,
+      '',
+      'COMO LER: faça GET em "' + url + '?action=read&key=' + key + '". A resposta é um JSON com o envelope {app, version, exportedAt, data} — é dentro de data que ficam os registros. ' + app.dica,
+      'COMO ESCREVER: primeiro leia o estado atual; aplique a alteração sobre ele; depois faça POST em "' + url + '?action=write&key=' + key + '" com o envelope COMPLETO atualizado (corpo JSON, content-type text/plain). Nunca envie um envelope parcial — a escrita substitui o arquivo inteiro. Confirme a escrita com um novo GET e compare o que voltou.',
+      '',
+      'REGRAS DE SEGURANÇA (obrigatórias):',
+      '1. Nunca sobrescreva um backup com MENOS registros do que o que você leu, sem me avisar antes.',
+      '2. Ao juntar dados, una pelos IDs dos registros — nunca apague um registro que você não criou.',
+      '3. Nunca mostre a minha chave em respostas, arquivos ou registros; ela é uma senha.',
+      '4. Valores e datas devem ser fiéis à fonte (foto, holerite, recibo) — o que não der para ler com segurança fica em branco, nunca inventado.',
+      '5. Valores em ienes (¥) e em reais (R$) sempre separados; se converter, diga a taxa usada.',
+      '',
+      'Para confirmar que entendeu: leia a ponte agora e me diga quantos registros encontrou e de que período eles são.'
+    ].join('\n');
+  }
+
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, recibosSummary, vendasSummary, parseSafe, linkPrompt, LINK_APPS };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -934,9 +963,53 @@ if (typeof document !== 'undefined') (() => {
       store.setRaw(LS.venKey, $('connVendasKey').value.trim());
       if (isDemo()) store.setRaw(LS.demo, '');
       $('connStatus').textContent = 'Conexões salvas. Sincronizando…';
+      refreshLinkStates();
       syncAll(true);
     });
     $('syncNow').addEventListener('click', () => syncAll(true));
+
+    // Salro Link: gerar e copiar o texto de conexão de cada app
+    function refreshLinkStates() {
+      Object.keys(SalroCalc.LINK_APPS).forEach((k) => {
+        const el = document.querySelector('[data-link-state="' + k + '"]');
+        if (!el) return;
+        const ok = !!(store.getRaw(CONN_KEYS[k].url, '') && store.getRaw(CONN_KEYS[k].key, ''));
+        el.textContent = ok ? 'ponte configurada ✔' : 'configure a ponte acima primeiro';
+        el.classList.toggle('ok', ok);
+      });
+    }
+    function copyText(text, doneMsg) {
+      const status = $('linkStatus');
+      const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); status.textContent = doneMsg; }
+        catch (e) { status.textContent = 'Não consegui copiar automaticamente — segure o texto e copie manualmente.'; }
+        ta.remove();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => { status.textContent = doneMsg; }, fallback);
+      } else fallback();
+    }
+    const linkCard = $('linkCard');
+    if (linkCard) {
+      linkCard.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-link-copy]');
+        if (!btn) return;
+        const k = btn.getAttribute('data-link-copy');
+        const url = store.getRaw(CONN_KEYS[k].url, '');
+        const key = store.getRaw(CONN_KEYS[k].key, '');
+        if (!url || !key) {
+          $('linkStatus').textContent = 'Configure a ponte desse app aqui em cima (link + chave) e salve as conexões primeiro.';
+          return;
+        }
+        copyText(SalroCalc.linkPrompt(k, url, key), 'Texto de conexão do ' + SalroCalc.LINK_APPS[k].nome + ' copiado ✔ Agora é só colar numa conversa com o seu Muse.');
+      });
+    }
+    refreshLinkStates();
     $('demoToggle').addEventListener('click', () => {
       store.setRaw(LS.demo, isDemo() ? '' : '1');
       syncAll(false);
