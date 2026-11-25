@@ -233,6 +233,7 @@ const SalroCalc = (() => {
       '3. Nunca mostre a minha chave em respostas, arquivos ou registros; ela é uma senha.',
       '4. Valores e datas devem ser fiéis à fonte (foto, holerite, recibo) — o que não der para ler com segurança fica em branco, nunca inventado.',
       '5. Valores em ienes (¥) e em reais (R$) sempre separados; se converter, diga a taxa usada.',
+      '6. Se o app tiver mais de uma pessoa ou perfil, confirme comigo de quem são os dados antes de escrever — e nunca altere os dados de outra pessoa sem pedido explícito.',
       '',
       'Para confirmar que entendeu: leia a ponte agora e me diga quantos registros encontrou e de que período eles são.'
     ].join('\n');
