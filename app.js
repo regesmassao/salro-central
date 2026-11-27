@@ -520,14 +520,14 @@ if (typeof document !== 'undefined') (() => {
       for (let c = 0; c < row.length; c++) {
         if (row[c] !== '#') continue;
         const dot = document.createElementNS(NS, 'circle');
-        dot.setAttribute('cx', c * 6 + 3);
-        dot.setAttribute('cy', r * 6.8 + 4);
+        dot.setAttribute('cx', c * 5.45 + 2);
+        dot.setAttribute('cy', r * 7 + 32);
         dot.setAttribute('r', 1.15);
         g.appendChild(dot);
       }
     });
     // Japão em destaque: arco de pontinhos cobre a leste da Ásia
-    [[306, 14], [313, 19], [318, 27], [322, 36], [325, 45], [327, 54], [315, 12], [321, 20]].forEach(([x, y]) => {
+    [[298, 38], [305, 42], [310, 48], [314, 55], [317, 62], [319, 69], [307, 35], [313, 43]].forEach(([x, y]) => {
       const dot = document.createElementNS(NS, 'circle');
       dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', 1.5);
       dot.setAttribute('class', 'jp');
@@ -1218,10 +1218,21 @@ if (typeof document !== 'undefined') (() => {
     } else bh += vidaNotice('💰 Vendas', venSt, 'Vendas');
     brlBox.innerHTML = bh || '<div class="glass-card"><p class="chart-empty">Sem dados do Brasil ainda — configure as pontes em ⚙️ Conexões.</p></div>';
 
-    /* ----- pill do nó no mapa ----- */
-    if (pill) {
-      pill.textContent = m.sobraPct != null ? 'sobra ' + Math.round(m.sobraPct) + '%'
-        : m.net != null ? C.fmtJPY(m.net) : '—';
+    /* ----- pill de sobra no CENTRO do mapa, junto da árvore Salro
+       (que abre este painel): o MESMO m.sobraPct — nenhum cálculo
+       novo. Sem base (sem cálculo do mês ou sem itens do Recibos no
+       mês), a pill não aparece. ----- */
+    const vidaSobra = $('hubNodeVidaSobra');
+    if (vidaSobra && pill) {
+      if (m.sobraPct != null) {
+        pill.textContent = 'sobra ' + Math.round(m.sobraPct) + '%';
+        vidaSobra.classList.toggle('neg', m.sobraPct < 0);
+        vidaSobra.removeAttribute('hidden');
+        vidaSobra.style.display = '';
+      } else {
+        vidaSobra.setAttribute('hidden', '');
+        vidaSobra.style.display = 'none';
+      }
     }
     /* ----- etiqueta de sobra no nó do Salário: o MESMO m.sobraPct do
        painel (nenhum cálculo novo) — a Central só lê os backups, nunca
