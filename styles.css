@@ -148,6 +148,9 @@ g.hub-node:nth-of-type(6) .map-node-halo{animation-delay:2.1s}
 .bill-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bill-meta{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .bill-row.overdue .bill-name,.bill-row.overdue .bill-meta{color:var(--danger);font-weight:700}
+.bill-row.sub{padding-left:14px}
+.bill-row.sub .bill-name{color:var(--muted)}
+.bill-row.total .bill-name,.bill-row.total .bill-meta{color:var(--cream);font-weight:700}
 .kpi-value.danger{color:var(--danger)}
 .kpi-sub .err{color:var(--danger);font-weight:700}
 

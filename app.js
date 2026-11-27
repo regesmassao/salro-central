@@ -232,11 +232,15 @@ const SalroCalc = (() => {
   function recibosOut(data, ym) {
     const items = recItems(data);
     let recibos = 0, contas = 0, nRec = 0, nCon = 0;
+    const contasList = [];
     items.forEach((it) => {
       if (it.type === 'recibo' && it.date.slice(0, 7) === ym) { recibos += it.amount; nRec++; }
-      else if (it.type === 'conta' && (it.dueDate || it.date).slice(0, 7) === ym) { contas += it.amount; nCon++; }
+      else if (it.type === 'conta' && (it.dueDate || it.date).slice(0, 7) === ym) {
+        contas += it.amount; nCon++;
+        contasList.push({ name: it.store || it.place || 'Conta', amount: it.amount, due: it.dueDate || null });
+      }
     });
-    return { recibos, contas, total: recibos + contas, nRec, nCon };
+    return { recibos, contas, total: recibos + contas, nRec, nCon, contasList };
   }
   function recibosFirstYm(data) {
     let first = null;
@@ -336,6 +340,8 @@ const SalroCalc = (() => {
     const ySaiu = sumOver(bothMonths, 'saiu');
     const yNetBoth = sumOver(bothMonths, 'net');
     const ySobra = yNetBoth.n ? yNetBoth.total - ySaiu.total : null;
+    const ySaiuRec = bothMonths.reduce((s, x) => s + (x.out ? x.out.recibos : 0), 0);
+    const ySaiuCon = bothMonths.reduce((s, x) => s + (x.out ? x.out.contas : 0), 0);
     const prevMonths = yearMonths.map((x) => monthOf(ymShift(x.ym, -12)));
     const yoyPair = (key) => {
       let curS = 0, prevS = 0, n = 0;
@@ -356,6 +362,7 @@ const SalroCalc = (() => {
         gross: yGross.n ? yGross.total : null, grossMonths: yGross.n,
         net: yNet.n ? yNet.total : null, netMonths: yNet.n,
         saiu: ySaiu.n ? ySaiu.total : null, months: yNetBoth.n,
+        saiuRecibos: ySaiu.n ? ySaiuRec : null, saiuContas: ySaiu.n ? ySaiuCon : null,
         sobra: ySobra,
         sobraPct: ySobra != null && yNetBoth.total > 0 ? (ySobra / yNetBoth.total) * 100 : null
       },
@@ -1122,7 +1129,15 @@ if (typeof document !== 'undefined') (() => {
       if (m.saiu != null) {
         yh += '<div class="glass-card kpi-card"><div class="kpi-label">🧾 Saiu · ' + m.label + ' (¥)</div>' +
           '<div class="kpi-value">' + C.fmtJPY(m.saiu) + '</div>' +
-          '<div class="kpi-sub">recibos ' + C.fmtJPY(m.out.recibos) + ' (' + m.out.nRec + ') · contas do mês ' + C.fmtJPY(m.out.contas) + ' (' + m.out.nCon + ')</div></div>';
+          '<div class="bill-row"><span class="bill-name">Recibos do mês</span><span class="bill-meta">' + C.fmtJPY(m.out.recibos) + ' · ' + m.out.nRec + (m.out.nRec === 1 ? ' recibo' : ' recibos') + '</span></div>';
+        if (m.out.nCon > 0) {
+          yh += '<div class="bill-row"><span class="bill-name">Contas do mês</span><span class="bill-meta">' + C.fmtJPY(m.out.contas) + ' · ' + m.out.nCon + (m.out.nCon === 1 ? ' conta' : ' contas') + '</span></div>';
+          m.out.contasList.forEach((c) => {
+            yh += '<div class="bill-row sub"><span class="bill-name">' + escHtml(c.name) + '</span><span class="bill-meta">' + C.fmtJPY(c.amount) +
+              (c.due ? ' · venc. ' + c.due.slice(8, 10) + '/' + c.due.slice(5, 7) : '') + '</span></div>';
+          });
+        }
+        yh += '</div>';
       } else {
         yh += '<div class="glass-card"><h3 class="card-title">🧾 Saiu · ' + m.label + '</h3><p class="chart-empty">Ainda não há recibos nem contas deste mês no backup do Recibos.</p></div>';
       }
@@ -1146,6 +1161,8 @@ if (typeof document !== 'undefined') (() => {
       if (yr.gross != null) rows += '<div class="bill-row"><span class="bill-name">Bruto do casal em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.gross) + ' · ' + yr.grossMonths + (yr.grossMonths === 1 ? ' mês' : ' meses') + ' com cálculo</span></div>';
       if (yr.net != null) rows += '<div class="bill-row"><span class="bill-name">Líquido em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.net) + '</span></div>';
       if (yr.saiu != null) rows += '<div class="bill-row"><span class="bill-name">Saiu em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiu) + '</span></div>';
+      if (yr.saiuRecibos != null) rows += '<div class="bill-row sub"><span class="bill-name">Recibos em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiuRecibos) + '</span></div>';
+      if (yr.saiuContas != null && yr.saiuContas > 0) rows += '<div class="bill-row sub"><span class="bill-name">Contas em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiuContas) + '</span></div>';
       if (yr.sobra != null) rows += '<div class="bill-row"><span class="bill-name">Sobra em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.sobra) + ' · ' + C.fmtPctPlain(yr.sobraPct) + ' do líquido</span></div>';
       if (p.yen.yoy.net) rows += '<div class="bill-row"><span class="bill-name">Líquido vs ' + (Number(p.year) - 1) + ' (mesmo período)</span><span class="bill-meta">' + C.fmtPct(p.yen.yoy.net.pct) + '</span></div>';
       if (p.yen.yoy.saiu) rows += '<div class="bill-row"><span class="bill-name">Saiu vs ' + (Number(p.year) - 1) + ' (mesmo período)</span><span class="bill-meta">' + C.fmtPct(p.yen.yoy.saiu.pct) + '</span></div>';
@@ -1221,6 +1238,23 @@ if (typeof document !== 'undefined') (() => {
         salSobra.setAttribute('hidden', '');
         salSobra.style.display = 'none';
       }
+    }
+    /* ----- nó do Salário: o valor principal vira o SALDO do mês
+       (líquido − saiu) quando há base — é o MESMO m.sobra do painel,
+       nenhum cálculo novo. Sem base de "saiu", fica o líquido que o
+       renderSalario já colocou. E a folha do Salário ganha a
+       composição do mês (líquido − recibos − contas = saldo). ----- */
+    const salNodeVal = $('hubNodeSalarioValue');
+    if (salNodeVal && m.sobra != null) salNodeVal.textContent = C.fmtJPY(m.sobra);
+    const salBox = $('salSaldoBox');
+    if (salBox) {
+      if (m.sobra != null && m.out) {
+        let rows = '<div class="bill-row"><span class="bill-name">Líquido do mês</span><span class="bill-meta">' + C.fmtJPY(m.net) + '</span></div>';
+        if (m.out.nRec > 0 || m.out.nCon === 0) rows += '<div class="bill-row"><span class="bill-name">− Recibos</span><span class="bill-meta">' + C.fmtJPY(m.out.recibos) + '</span></div>';
+        if (m.out.nCon > 0) rows += '<div class="bill-row"><span class="bill-name">− Contas</span><span class="bill-meta">' + C.fmtJPY(m.out.contas) + '</span></div>';
+        rows += '<div class="bill-row total"><span class="bill-name">= Saldo do mês</span><span class="bill-meta">' + C.fmtJPY(m.sobra) + '</span></div>';
+        salBox.innerHTML = rows;
+      } else salBox.innerHTML = '';
     }
   }
 
