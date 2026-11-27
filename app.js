@@ -761,12 +761,12 @@ if (typeof document !== 'undefined') (() => {
   }
   function renderRecibos(state) {
     const val = $('hubRecibosValue'), sub = $('hubRecibosSub'), sync = $('hubRecibosSync'),
-      node = $('hubNodeRecibosValue'), list = $('hubRecibosBills'),
+      node = $('hubNodeRecibosValue'), list = $('hubRecibosBills'), bd = $('hubRecibosBreakdown'),
       kGasto = $('kpiRecibosGasto'), kGastoSub = $('kpiRecibosGastoSub'),
       kContas = $('kpiRecibosContas'), kContasSub = $('kpiRecibosContasSub');
     const gastoCard = kGasto.closest('.kpi-card'), contasCard = kContas.closest('.kpi-card');
     const reset = () => {
-      list.innerHTML = '';
+      list.innerHTML = ''; bd.innerHTML = '';
       gastoCard.classList.add('muted'); contasCard.classList.add('muted');
       kContas.classList.remove('danger');
       setNodeAlert('sheet-recibos', false, 'hubBadgeRecibos', 'hubBadgeRecibosText', 0);
@@ -798,12 +798,27 @@ if (typeof document !== 'undefined') (() => {
       return;
     }
     const s = SalroCalc.recibosSummary(resp.data, new Date());
+    /* Total do mês do Recibos = gastos + despesas: a MESMA soma que o
+       Painel da Vida já computa (recibosOut) — recibos do mês (pela
+       data do recibo) + contas do mês (pelo vencimento, pagas ou
+       não). Decisão do Reges (v2.6.5): onde aparece total do Recibos,
+       entram recibos E contas. A pill do nó mostra esse total; o
+       valor grande da folha continua sendo o gasto (recibos), com o
+       desdobramento logo abaixo. Mês sem nenhum item: total 0, como
+       antes (¥ 0), e o desdobramento fica vazio. */
+    const out = SalroCalc.recibosOut(resp.data, s.ym);
     const soonDays = s.nextDue && s.nextDue.due ? daysUntil(s.nextDue.due) : null;
     setNodeAlert('sheet-recibos', s.overdueCount > 0 || (soonDays !== null && soonDays <= 3),
       'hubBadgeRecibos', 'hubBadgeRecibosText', s.overdueCount);
     gastoCard.classList.remove('muted'); contasCard.classList.remove('muted');
     val.textContent = SalroCalc.fmtJPY(s.monthTotal);
-    node.textContent = SalroCalc.fmtJPY(s.monthTotal);
+    node.textContent = SalroCalc.fmtJPY(out.total);
+    bd.innerHTML = (out.nRec + out.nCon === 0) ? '' :
+      (out.nRec > 0
+        ? '<div class="bill-row"><span class="bill-name">Gastos</span><span class="bill-meta">' + SalroCalc.fmtJPY(out.recibos) + '</span></div>' : '') +
+      (out.nCon > 0
+        ? '<div class="bill-row"><span class="bill-name">Despesas</span><span class="bill-meta">' + SalroCalc.fmtJPY(out.contas) + '</span></div>' : '') +
+      '<div class="bill-row total"><span class="bill-name">= Total do mês</span><span class="bill-meta">' + SalroCalc.fmtJPY(out.total) + '</span></div>';
     sub.textContent = 'gasto do mês · ' + s.monthCount + (s.monthCount === 1 ? ' recibo' : ' recibos') +
       ' · ' + s.billsCount + (s.billsCount === 1 ? ' conta a pagar' : ' contas a pagar');
     kGasto.textContent = SalroCalc.fmtJPY(s.monthTotal);
