@@ -40,8 +40,8 @@ const SalroCalc = (() => {
   }
 
   /* ---- Salário: wrapper.data.data = dump do localStorage do app ---- */
-  function msjMonth(inner, refDate) {
-    const ym = ymOf(refDate);
+  function msjMonth(inner, refDate) { return msjMonthYm(inner, ymOf(refDate)); }
+  function msjMonthYm(inner, ym) {
     const employees = parseSafe(inner && inner['msj-employees'], []);
     const list = (Array.isArray(employees) ? employees : []).map((emp) => {
       const isPrincipal = emp.id === 'principal';
@@ -131,12 +131,10 @@ const SalroCalc = (() => {
   /* ---- Recibos: data = {app:'recibos-jp', version, exportedAt, items:[...]}
      Gasto do mês segue a definição da tela inicial do próprio app Recibos:
      soma dos itens do tipo 'recibo' cuja data cai no mês de referência. */
-  function recibosSummary(data, refDate) {
-    const ym = ymOf(refDate);
-    const todayIso = refDate.getFullYear() + '-' + pad2(refDate.getMonth() + 1) + '-' + pad2(refDate.getDate());
+  // lista branca: só os campos que a Central lê
+  function recItems(data) {
     const raw = (data && Array.isArray(data.items)) ? data.items : [];
-    // lista branca: só os campos que a Central lê
-    const items = raw.filter((it) => it && typeof it === 'object').map((it) => ({
+    return raw.filter((it) => it && typeof it === 'object').map((it) => ({
       type: typeof it.type === 'string' ? it.type : '',
       date: typeof it.date === 'string' ? it.date : '',
       store: typeof it.store === 'string' ? it.store : '',
@@ -144,6 +142,11 @@ const SalroCalc = (() => {
       dueDate: (typeof it.dueDate === 'string' && it.dueDate) ? it.dueDate : null,
       paid: !!it.paid
     }));
+  }
+  function recibosSummary(data, refDate) {
+    const ym = ymOf(refDate);
+    const todayIso = refDate.getFullYear() + '-' + pad2(refDate.getMonth() + 1) + '-' + pad2(refDate.getDate());
+    const items = recItems(data);
     let monthTotal = 0, monthCount = 0;
     items.forEach((it) => {
       if (it.type === 'recibo' && it.date.slice(0, 7) === ym) { monthTotal += it.amount; monthCount++; }
@@ -209,6 +212,204 @@ const SalroCalc = (() => {
     return null;
   }
 
+  /* ---- Painel da Vida: métricas combinadas de todos os apps ----
+     Tudo sai dos backups (espelhos); nada é inventado: métrica sem
+     base volta null e a tela mostra "—" ou o estado vazio. */
+  function fmtPct(v) { // variação: sempre com sinal
+    if (v == null || isNaN(v)) return '—';
+    return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + '%';
+  }
+  function fmtPctPlain(v) { // parcela (ex.: sobra sobre o líquido): sinal só se negativo
+    if (v == null || isNaN(v)) return '—';
+    return (v < 0 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + '%';
+  }
+
+  /* "Saiu" de um mês no Recibos: recibos do mês (pela data do recibo —
+     a mesma definição da tela inicial do app) + contas do mês (pelo
+     vencimento — dueDate, ou a data do lançamento quando não há
+     vencimento), pagas ou não: conta que vence no mês é dinheiro
+     que sai naquele mês. */
+  function recibosOut(data, ym) {
+    const items = recItems(data);
+    let recibos = 0, contas = 0, nRec = 0, nCon = 0;
+    items.forEach((it) => {
+      if (it.type === 'recibo' && it.date.slice(0, 7) === ym) { recibos += it.amount; nRec++; }
+      else if (it.type === 'conta' && (it.dueDate || it.date).slice(0, 7) === ym) { contas += it.amount; nCon++; }
+    });
+    return { recibos, contas, total: recibos + contas, nRec, nCon };
+  }
+  function recibosFirstYm(data) {
+    let first = null;
+    recItems(data).forEach((it) => {
+      if (it.type !== 'recibo' && it.type !== 'conta') return;
+      const ref = it.type === 'conta' ? (it.dueDate || it.date) : it.date;
+      const m = (ref || '').slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(m) && (first === null || m < first)) first = m;
+    });
+    return first;
+  }
+
+  /* Posição a custo numa data, com o MESMO método do app Meu IR
+     (preço médio, operações em ordem cronológica, corte pela data). */
+  function irPositionsAt(data, dateIso) {
+    const ops = ((data && data.operations) || []).filter((op) => op && typeof op.date === 'string')
+      .slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const pos = {};
+    ops.forEach((op) => {
+      if (dateIso && op.date > dateIso) return;
+      const p = pos[op.assetId] || (pos[op.assetId] = { qty: 0, cost: 0, pm: 0 });
+      const q = Number(op.qty) || 0, pr = Number(op.price) || 0, f = Number(op.fees) || 0;
+      if (op.side === 'compra') { p.cost += q * pr + f; p.qty += q; }
+      else if (op.side === 'venda') { p.cost -= q * p.pm; p.qty -= q; if (p.qty < 1e-9) { p.qty = 0; p.cost = 0; } }
+      p.pm = p.qty > 0 ? p.cost / p.qty : 0;
+    });
+    return pos;
+  }
+  function irCostAt(data, dateIso) {
+    const pos = irPositionsAt(data, dateIso);
+    let total = 0;
+    Object.keys(pos).forEach((id) => { if (pos[id].qty > 0) total += pos[id].cost; });
+    return total;
+  }
+  /* Valor de mercado com a regra do próprio app Meu IR: no Tesouro
+     Direto a cotação guardada é o VALOR TOTAL da posição; nos demais
+     ativos, o preço por unidade. Faltando cotação de algum ativo com
+     posição, volta null (não mistura custo com mercado). */
+  function irMarket(data) {
+    const amap = {};
+    ((data && data.assets) || []).forEach((a) => { amap[a.id] = a; });
+    const pos = irPositionsAt(data, null);
+    const quotes = (data && data.quotes) || {};
+    let market = 0, ok = true, any = false, mDate = '';
+    Object.keys(pos).forEach((aid) => {
+      const p = pos[aid];
+      if (p.qty <= 0) return;
+      any = true;
+      const q = quotes[aid];
+      if (!q || q.value == null) { ok = false; return; }
+      market += (amap[aid] && amap[aid].type) === 'tesouro' ? Number(q.value) : p.qty * Number(q.value);
+      if (q.date && q.date > mDate) mDate = q.date;
+    });
+    return { market: ok && any ? market : null, marketDate: mDate };
+  }
+
+  function painelVida(opts) {
+    const now = (opts && opts.now) || new Date();
+    const ym = ymOf(now);
+    const year = ym.slice(0, 4);
+    const salInner = (opts && opts.salInner) || null;
+    const recData = (opts && opts.recData) || null;
+    const irData = (opts && opts.irData) || null;
+    const venData = (opts && opts.venData) || null;
+    const remessas = (opts && Array.isArray(opts.remessas)) ? opts.remessas : [];
+
+    /* ---------- Bloco ¥ ---------- */
+    const firstRecYm = recData ? recibosFirstYm(recData) : null;
+    const monthOf = (m) => {
+      const sal = salInner ? msjMonthYm(salInner, m) : null;
+      const net = sal && sal.anySnap ? sal.totalNet : null;
+      const gross = sal && sal.anySnap ? sal.totalGross : null;
+      const out = (recData && firstRecYm && m >= firstRecYm) ? recibosOut(recData, m) : null;
+      const saiu = out ? out.total : null;
+      const sobra = net != null && saiu != null ? net - saiu : null;
+      return {
+        ym: m, label: ymLabel(m), gross, net,
+        deductions: gross != null && net != null ? gross - net : null,
+        partial: !!(sal && sal.anySnap && !sal.complete),
+        out, saiu, sobra,
+        sobraPct: sobra != null && net > 0 ? (sobra / net) * 100 : null
+      };
+    };
+    const serie = [];
+    for (let i = 11; i >= 0; i--) serie.push(monthOf(ymShift(ym, -i)));
+    const cur = serie[serie.length - 1];
+    const yearMonths = [];
+    for (let m = 1; m <= Number(ym.slice(5, 7)); m++) yearMonths.push(monthOf(year + '-' + pad2(m)));
+    const sumOver = (list, key) => {
+      let s = 0, n = 0;
+      list.forEach((x) => { if (x[key] != null) { s += x[key]; n++; } });
+      return { total: s, n };
+    };
+    const yGross = sumOver(yearMonths, 'gross');
+    const yNet = sumOver(yearMonths, 'net');
+    const bothMonths = yearMonths.filter((x) => x.net != null && x.saiu != null);
+    const ySaiu = sumOver(bothMonths, 'saiu');
+    const yNetBoth = sumOver(bothMonths, 'net');
+    const ySobra = yNetBoth.n ? yNetBoth.total - ySaiu.total : null;
+    const prevMonths = yearMonths.map((x) => monthOf(ymShift(x.ym, -12)));
+    const yoyPair = (key) => {
+      let curS = 0, prevS = 0, n = 0;
+      yearMonths.forEach((x, i) => {
+        if (x[key] != null && prevMonths[i][key] != null) { curS += x[key]; prevS += prevMonths[i][key]; n++; }
+      });
+      return n && prevS > 0 ? { pct: (curS / prevS - 1) * 100, months: n } : null;
+    };
+    let salSince = null;
+    if (salInner) Object.keys(salInner).forEach((k) => {
+      const mm = /-months-(\d{4}-\d{2})$/.exec(k);
+      if (mm && (salSince === null || mm[1] < salSince)) salSince = mm[1];
+    });
+    const yen = {
+      hasSal: !!salInner, hasRec: !!recData, salSince, firstRecYm,
+      month: cur, serie,
+      year: {
+        gross: yGross.n ? yGross.total : null, grossMonths: yGross.n,
+        net: yNet.n ? yNet.total : null, netMonths: yNet.n,
+        saiu: ySaiu.n ? ySaiu.total : null, months: yNetBoth.n,
+        sobra: ySobra,
+        sobraPct: ySobra != null && yNetBoth.total > 0 ? (ySobra / yNetBoth.total) * 100 : null
+      },
+      yoy: { net: yoyPair('net'), saiu: yoyPair('saiu') },
+      remessas: { count: remessas.length, jpy: remessas.reduce((s, r) => s + (Number(r && r.jpy) || 0), 0) }
+    };
+
+    /* ---------- Bloco R$ ---------- */
+    let invest = null, meta = null;
+    if (irData) {
+      const s = irSummary(irData);
+      const mk = irMarket(irData);
+      const hp = irData.histProventos || {};
+      const byYearMap = {};
+      Object.keys(hp).forEach((k) => {
+        const y = k.slice(0, 4);
+        if (!/^\d{4}$/.test(y)) return;
+        const b = byYearMap[y] || (byYearMap[y] = { total: 0, months: 0 });
+        b.total += Number(hp[k]) || 0;
+        b.months++;
+      });
+      const provByYear = Object.keys(byYearMap).sort().reverse().map((y) => {
+        const prev = byYearMap[String(Number(y) - 1)];
+        return {
+          year: y, total: byYearMap[y].total, months: byYearMap[y].months,
+          partial: byYearMap[y].months < 12,
+          varPct: prev && prev.total > 0 ? (byYearMap[y].total / prev.total - 1) * 100 : null
+        };
+      });
+      const costPrevDec = irCostAt(irData, (Number(year) - 1) + '-12-31');
+      invest = {
+        cost: s.totalCost, nAssets: s.nAssets,
+        market: mk.market, marketDate: mk.marketDate,
+        prov12: s.total12, provAll: s.allTime, provByYear,
+        costPrevDec: costPrevDec > 0 ? costPrevDec : null,
+        growthPct: costPrevDec > 0 && s.totalCost > 0 ? (s.totalCost / costPrevDec - 1) * 100 : null
+      };
+      meta = { goal: 2000000, invested: s.totalCost, pct: s.totalCost > 0 ? (s.totalCost / 2000000) * 100 : 0 };
+    }
+    const ven = venData ? vendasSummary(venData) : null;
+    const brl = {
+      hasIr: !!irData, hasVen: !!venData, invest, meta,
+      vendas: ven ? {
+        hasResumo: !!ven.hasResumo,
+        mes: ven.mes || null, totais: ven.totais || null,
+        taxasMes: ven.mes ? ven.mes.bruto - ven.mes.liquido : null,
+        qtdTotal: ven.totais ? ven.totais.qtd : (ven.qtdTotal || 0),
+        brutoTotal: ven.totais ? ven.totais.bruto : (ven.brutoTotal || 0),
+        empty: !((ven.totais && ven.totais.qtd) || (ven.mes && ven.mes.qtd) || ven.qtdTotal)
+      } : null
+    };
+    return { ym, year, yen, brl };
+  }
+
   /* ---- Salro Link: texto de conexão que o dono cola no assistente dele ---- */
   const LINK_APPS = {
     sal: { nome: 'Salro Salário', dica: 'Os dados são um despejo das chaves internas do app (prefixo msj-); os meses fechados ficam nas chaves msj-v4-3-months-AAAA-MM e os dias nas chaves msj-v4-2-days-AAAA-MM-DD.' },
@@ -239,7 +440,7 @@ const SalroCalc = (() => {
     ].join('\n');
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, msjMonth, irSummary, recibosSummary, vendasSummary, parseSafe, linkPrompt, LINK_APPS };
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -337,6 +538,13 @@ if (typeof document !== 'undefined') (() => {
     };
     msjInner['msj-v4-3-months-' + ym] = JSON.stringify({ gross: 286000, net: 212400 });
     msjInner['msj-func-demo2-months-' + ym] = JSON.stringify({ gross: 243000, net: 178900 });
+    // meses anteriores (demo): alimentam a série de sobra do Painel da Vida
+    [[278000, 205100, 236000, 172300], [291000, 216800, 240000, 175900], [283000, 209400, 238000, 174100], [295000, 219900, 246000, 180200]]
+      .forEach((v, i) => {
+        const m = SalroCalc.ymShift(ym, -(i + 1));
+        msjInner['msj-v4-3-months-' + m] = JSON.stringify({ gross: v[0], net: v[1] });
+        msjInner['msj-func-demo2-months-' + m] = JSON.stringify({ gross: v[2], net: v[3] });
+      });
     for (let d = 1; d <= 9; d++) msjInner['msj-v4-2-days-' + ym + '-0' + d] = JSON.stringify({ in: '09:00', out: '17:45' });
     for (let d = 1; d <= 8; d++) msjInner['msj-func-demo2-days-' + ym + '-0' + d] = JSON.stringify({ in: '09:00', out: '17:45' });
     const hp = {};
@@ -348,10 +556,10 @@ if (typeof document !== 'undefined') (() => {
         { id: 'd3', ticker: 'DEME11', type: 'etf' }, { id: 'd4', ticker: 'Tesouro Demo', type: 'tesouro' }
       ],
       operations: [
-        { id: 'o1', assetId: 'd1', side: 'compra', qty: 100, price: 100, fees: 0 },
-        { id: 'o2', assetId: 'd2', side: 'compra', qty: 200, price: 85, fees: 0 },
-        { id: 'o3', assetId: 'd3', side: 'compra', qty: 50, price: 130, fees: 0 },
-        { id: 'o4', assetId: 'd4', side: 'compra', qty: 1, price: 9000, fees: 0 }
+        { id: 'o1', assetId: 'd1', side: 'compra', date: SalroCalc.ymShift(ym, -14) + '-12', qty: 100, price: 100, fees: 0 },
+        { id: 'o2', assetId: 'd2', side: 'compra', date: SalroCalc.ymShift(ym, -13) + '-08', qty: 200, price: 85, fees: 0 },
+        { id: 'o3', assetId: 'd3', side: 'compra', date: SalroCalc.ymShift(ym, -3) + '-15', qty: 50, price: 130, fees: 0 },
+        { id: 'o4', assetId: 'd4', side: 'compra', date: SalroCalc.ymShift(ym, -1) + '-20', qty: 1, price: 9000, fees: 0 }
       ],
       quotes: {}, histProventos: hp
     };
@@ -371,7 +579,20 @@ if (typeof document !== 'undefined') (() => {
         recItem('r4', 'conta', isoDay(new Date(ref.getTime() - 9 * DAY)), 'Conta de água (demo)', 3280,
           { dueDate: isoDay(new Date(ref.getTime() - 2 * DAY)) }),
         recItem('r5', 'conta', isoDay(new Date(ref.getTime() - 6 * DAY)), 'Internet (demo)', 4180,
-          { dueDate: isoDay(new Date(ref.getTime() + 9 * DAY)), paid: true })
+          { dueDate: isoDay(new Date(ref.getTime() + 9 * DAY)), paid: true }),
+        // meses anteriores (demo): alimentam a série de sobra do Painel da Vida
+        recItem('r6', 'recibo', SalroCalc.ymShift(ym, -1) + '-10', 'Supermercado (demo)', 86400, { category: 'Supermercado' }),
+        recItem('r7', 'conta', SalroCalc.ymShift(ym, -1) + '-02', 'Aluguel (demo)', 90000,
+          { dueDate: SalroCalc.ymShift(ym, -1) + '-27', paid: true }),
+        recItem('r8', 'recibo', SalroCalc.ymShift(ym, -2) + '-11', 'Supermercado (demo)', 91200, { category: 'Supermercado' }),
+        recItem('r9', 'conta', SalroCalc.ymShift(ym, -2) + '-03', 'Aluguel (demo)', 90000,
+          { dueDate: SalroCalc.ymShift(ym, -2) + '-27', paid: true }),
+        recItem('r10', 'recibo', SalroCalc.ymShift(ym, -3) + '-09', 'Supermercado (demo)', 79800, { category: 'Supermercado' }),
+        recItem('r11', 'conta', SalroCalc.ymShift(ym, -3) + '-04', 'Aluguel (demo)', 90000,
+          { dueDate: SalroCalc.ymShift(ym, -3) + '-27', paid: true }),
+        recItem('r12', 'recibo', SalroCalc.ymShift(ym, -4) + '-12', 'Supermercado (demo)', 88300, { category: 'Supermercado' }),
+        recItem('r13', 'conta', SalroCalc.ymShift(ym, -4) + '-05', 'Aluguel (demo)', 90000,
+          { dueDate: SalroCalc.ymShift(ym, -4) + '-27', paid: true })
       ]
     };
     const venData = {
@@ -724,6 +945,7 @@ if (typeof document !== 'undefined') (() => {
     renderVendas(eff.ven);
     lastEff = eff;
     renderHoje();
+    renderVida();
     renderSyncPill(eff);
     $('demoBanner').hidden = !isDemo();
     $('demoToggle').textContent = isDemo() ? 'Sair do modo demonstração' : 'Ver modo demonstração';
@@ -844,6 +1066,146 @@ if (typeof document !== 'undefined') (() => {
       parts.push('<div class="bill-row"><span class="bill-name">✈️ Remessas anotadas</span><span class="bill-meta">' + SalroCalc.fmtJPY(tj) + ' enviados</span></div>');
     }
     rs.innerHTML = parts.length ? parts.join('') : '<p class="chart-empty">Configure as pontes em ⚙️ Conexões para ver o resumo.</p>';
+  }
+
+  /* ---------- Painel da Vida ---------- */
+  function vidaState(eff, app) {
+    const st = eff && eff[app];
+    if (!st || st.status === 'none') return { kind: 'none' };
+    if (st.status === 'error') return { kind: 'error' };
+    if (!st.resp || !st.resp.exists || !st.resp.data) return { kind: 'empty' };
+    return { kind: 'ok', resp: st.resp };
+  }
+  function vidaNotice(titulo, st, appLabel) {
+    if (st.kind === 'ok') return '';
+    const msg = st.kind === 'none'
+      ? 'Configure a ponte do ' + appLabel + ' em ⚙️ Conexões para esta parte aparecer aqui.'
+      : st.kind === 'error'
+        ? 'Não foi possível ler a nuvem do ' + appLabel + ' — confira o link e a chave em ⚙️ Conexões.'
+        : 'A ponte do ' + appLabel + ' respondeu, mas ainda não há backup na nuvem. Abra o app ' + appLabel + ' e envie um backup.';
+    return '<div class="glass-card"><h3 class="card-title">' + titulo + '</h3><p class="chart-empty">' + msg + '</p></div>';
+  }
+  function renderVida() {
+    const yenBox = $('vidaYen'), brlBox = $('vidaBrl'), syncsEl = $('vidaSyncs'), pill = $('hubNodeVidaValue');
+    if (!yenBox || !brlBox) return;
+    const eff = lastEff || {};
+    const salSt = vidaState(eff, 'sal'), recSt = vidaState(eff, 'rec'),
+      irSt = vidaState(eff, 'ir'), venSt = vidaState(eff, 'ven');
+    const src = (nome, st) => nome + (st.kind === 'ok'
+      ? ' · ' + (fmtSync(st.resp.updatedAt) || 'sem data')
+      : st.kind === 'error' ? ' · erro de leitura' : st.kind === 'empty' ? ' · sem backup' : ' · sem ponte');
+    if (syncsEl) syncsEl.textContent = 'Fontes — último backup de cada app: ' +
+      [src('Salário', salSt), src('Recibos', recSt), src('Meu IR', irSt), src('Vendas', venSt)].join(' · ');
+    const salInner = salSt.kind === 'ok' && salSt.resp.data.data ? salSt.resp.data.data : null;
+    const recData = recSt.kind === 'ok' && Array.isArray(recSt.resp.data.items) ? recSt.resp.data : null;
+    const salEff = salSt.kind === 'ok' && !salInner ? { kind: 'empty' } : salSt;
+    const recEff = recSt.kind === 'ok' && !recData ? { kind: 'empty' } : recSt;
+    const irData = irSt.kind === 'ok' ? irSt.resp.data : null;
+    const venData = venSt.kind === 'ok' ? venSt.resp.data : null;
+    const C = SalroCalc;
+    const p = C.painelVida({ salInner, recData, irData, venData, remessas: loadRemessas(), now: new Date() });
+    const m = p.yen.month, yr = p.yen.year;
+
+    /* ----- bloco ¥ ----- */
+    let yh = '';
+    if (salInner) {
+      if (m.net != null) {
+        yh += '<div class="glass-card kpi-card"><div class="kpi-label">🌳 Passou na mão · ' + m.label + ' (¥)</div>' +
+          '<div class="kpi-value">' + C.fmtJPY(m.net) + '</div>' +
+          '<div class="kpi-sub">líquido do casal · bruto ' + C.fmtJPY(m.gross) + ' · descontos ' + C.fmtJPY(m.deductions) +
+          (m.partial ? ' · ⚠ parcial: falta o cálculo de alguém' : '') + '</div></div>';
+      } else {
+        yh += '<div class="glass-card"><h3 class="card-title">🌳 Salário de ' + m.label + '</h3><p class="chart-empty">O backup ainda não traz o cálculo fechado deste mês. Abra o app Salário e toque em Calcular — os meses fechados entram no acumulado do ano e na série da sobra.</p></div>';
+      }
+    } else yh += vidaNotice('🌳 Salário', salEff, 'Salário');
+    if (recData) {
+      if (m.saiu != null) {
+        yh += '<div class="glass-card kpi-card"><div class="kpi-label">🧾 Saiu · ' + m.label + ' (¥)</div>' +
+          '<div class="kpi-value">' + C.fmtJPY(m.saiu) + '</div>' +
+          '<div class="kpi-sub">recibos ' + C.fmtJPY(m.out.recibos) + ' (' + m.out.nRec + ') · contas do mês ' + C.fmtJPY(m.out.contas) + ' (' + m.out.nCon + ')</div></div>';
+      } else {
+        yh += '<div class="glass-card"><h3 class="card-title">🧾 Saiu · ' + m.label + '</h3><p class="chart-empty">Ainda não há recibos nem contas deste mês no backup do Recibos.</p></div>';
+      }
+    } else yh += vidaNotice('🧾 Recibos', recEff, 'Recibos');
+    if (m.sobraPct != null) {
+      yh += '<div class="glass-card kpi-card"><div class="kpi-label">✦ Sobra · ' + m.label + ' (¥)</div>' +
+        '<div class="kpi-value">' + C.fmtJPY(m.sobra) + '</div>' +
+        '<div class="kpi-sub">sobra de <strong>' + C.fmtPctPlain(m.sobraPct) + '</strong> do líquido do mês — a métrica para fazer subir, mês a mês 📈</div></div>';
+    }
+    if (p.yen.serie.some((x) => x.sobraPct != null)) {
+      const maxAbs = Math.max.apply(null, p.yen.serie.filter((x) => x.sobraPct != null).map((x) => Math.abs(x.sobraPct)).concat([1]));
+      yh += '<div class="glass-card"><h3 class="card-title">✦ Sobra % mês a mês</h3><div class="prov-chart">' +
+        p.yen.serie.map((x) => {
+          if (x.sobraPct == null) return '<div class="prov-col"><div class="prov-bar void" style="height:2%"><span class="prov-val">—</span></div><div class="prov-lab">' + x.label + '</div></div>';
+          const h = Math.max(3, Math.round((Math.abs(x.sobraPct) / maxAbs) * 100));
+          return '<div class="prov-col"><div class="prov-bar' + (x.sobraPct < 0 ? ' neg' : '') + '" style="height:' + h + '%"><span class="prov-val">' + C.fmtPctPlain(x.sobraPct) + '</span></div><div class="prov-lab">' + x.label + '</div></div>';
+        }).join('') + '</div></div>';
+    }
+    if (yr.net != null || yr.saiu != null) {
+      let rows = '';
+      if (yr.gross != null) rows += '<div class="bill-row"><span class="bill-name">Bruto do casal em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.gross) + ' · ' + yr.grossMonths + (yr.grossMonths === 1 ? ' mês' : ' meses') + ' com cálculo</span></div>';
+      if (yr.net != null) rows += '<div class="bill-row"><span class="bill-name">Líquido em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.net) + '</span></div>';
+      if (yr.saiu != null) rows += '<div class="bill-row"><span class="bill-name">Saiu em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiu) + '</span></div>';
+      if (yr.sobra != null) rows += '<div class="bill-row"><span class="bill-name">Sobra em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.sobra) + ' · ' + C.fmtPctPlain(yr.sobraPct) + ' do líquido</span></div>';
+      if (p.yen.yoy.net) rows += '<div class="bill-row"><span class="bill-name">Líquido vs ' + (Number(p.year) - 1) + ' (mesmo período)</span><span class="bill-meta">' + C.fmtPct(p.yen.yoy.net.pct) + '</span></div>';
+      if (p.yen.yoy.saiu) rows += '<div class="bill-row"><span class="bill-name">Saiu vs ' + (Number(p.year) - 1) + ' (mesmo período)</span><span class="bill-meta">' + C.fmtPct(p.yen.yoy.saiu.pct) + '</span></div>';
+      yh += '<div class="glass-card"><h3 class="card-title">📅 Acumulado de ' + p.year + ' (¥)</h3>' + rows + '</div>';
+      if (!p.yen.yoy.net && p.yen.salSince) {
+        yh += '<p class="fineprint">Ano contra ano: os salários do backup começam em ' + C.ymLabel(p.yen.salSince) + ' — a comparação com o ano anterior aparece quando o mesmo período existir nos dois anos.</p>';
+      }
+    }
+    if (p.yen.remessas.count > 0) {
+      yh += '<div class="glass-card"><div class="bill-row"><span class="bill-name">✈️ Remessas enviadas (diário local)</span><span class="bill-meta">' + C.fmtJPY(p.yen.remessas.jpy) + ' · ' + p.yen.remessas.count + (p.yen.remessas.count === 1 ? ' envio' : ' envios') + '</span></div></div>';
+    }
+    yenBox.innerHTML = yh || '<div class="glass-card"><p class="chart-empty">Sem dados do Japão ainda — configure as pontes em ⚙️ Conexões.</p></div>';
+
+    /* ----- bloco R$ ----- */
+    let bh = '';
+    const inv = p.brl.invest;
+    if (irData && inv) {
+      bh += '<div class="glass-card kpi-card"><div class="kpi-label">📊 Investimentos · carteira a custo (R$)</div>' +
+        '<div class="kpi-value">' + C.fmtBRL(inv.cost) + '</div>' +
+        '<div class="kpi-sub">' + inv.nAssets + ' ativos' +
+        (inv.market != null
+          ? ' · a mercado ≈ ' + C.fmtBRL(inv.market) + (inv.marketDate ? ' (cotações de ' + fmtDateShort(inv.marketDate) + ')' : '')
+          : ' · sem cotação completa p/ mercado') +
+        ' · proventos 12 meses ' + C.fmtBRL(inv.prov12) + '</div></div>';
+      let rows = '';
+      if (inv.growthPct != null) rows += '<div class="bill-row"><span class="bill-name">Capital investido · 31/dez/' + (Number(p.year) - 1) + ' → hoje</span><span class="bill-meta">' + C.fmtBRL0(inv.costPrevDec) + ' → ' + C.fmtBRL0(inv.cost) + ' · ' + C.fmtPct(inv.growthPct) + '</span></div>';
+      inv.provByYear.slice(0, 4).forEach((y) => {
+        rows += '<div class="bill-row"><span class="bill-name">Proventos ' + y.year + (y.partial ? ' (parcial · ' + y.months + ' meses)' : '') + '</span><span class="bill-meta">' + C.fmtBRL(y.total) + (y.varPct != null ? ' · ' + C.fmtPct(y.varPct) + ' vs ' + (Number(y.year) - 1) : '') + '</span></div>';
+      });
+      if (rows) bh += '<div class="glass-card"><h3 class="card-title">📈 Crescimento · ano contra ano (R$)</h3>' + rows + '</div>';
+      if (p.brl.meta) {
+        const pctW = Math.min(100, Math.max(0, p.brl.meta.pct));
+        bh += '<div class="glass-card"><h3 class="card-title">🎯 Liberdade financeira</h3>' +
+          '<div class="alloc-row"><div class="alloc-head"><span class="alloc-name">Investido rumo à meta</span><span class="alloc-val">' + C.fmtBRL0(p.brl.meta.invested) + ' de ' + C.fmtBRL0(p.brl.meta.goal) + ' · ' + C.fmtPctPlain(p.brl.meta.pct) + '</span></div>' +
+          '<div class="alloc-track"><div class="alloc-fill" style="width:' + pctW.toFixed(1) + '%"></div></div></div>' +
+          '<p class="fineprint">O plano completo da meta mora no chat dela — aqui é só a linha do progresso.</p></div>';
+      }
+    } else bh += vidaNotice('📊 Meu IR · Investimentos', irSt, 'Meu IR');
+    const ven = p.brl.vendas;
+    if (venData && ven) {
+      if (ven.empty) {
+        bh += '<div class="glass-card"><h3 class="card-title">💰 Vendas</h3><p class="chart-empty">Sem vendas registradas ainda. Quando a primeira venda entrar no app Vendas, bruto, taxas, líquido e lucro aparecem aqui — sem abrir outro app.</p></div>';
+      } else if (ven.hasResumo && ven.mes) {
+        bh += '<div class="glass-card"><h3 class="card-title">💰 Vendas (R$)</h3>' +
+          '<div class="bill-row"><span class="bill-name">Bruto do mês · ' + ven.mes.qtd + (ven.mes.qtd === 1 ? ' venda' : ' vendas') + '</span><span class="bill-meta">' + C.fmtBRL(ven.mes.bruto) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Taxas da plataforma (mês)</span><span class="bill-meta">' + C.fmtBRL(ven.taxasMes) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Líquido da plataforma (mês)</span><span class="bill-meta">' + C.fmtBRL(ven.mes.liquido) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Lucro do mês (após reserva)</span><span class="bill-meta">' + C.fmtBRL(ven.mes.lucro) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Total geral · ' + ven.totais.qtd + (ven.totais.qtd === 1 ? ' venda' : ' vendas') + '</span><span class="bill-meta">bruto ' + C.fmtBRL(ven.totais.bruto) + ' · lucro ' + C.fmtBRL(ven.totais.lucro) + '</span></div></div>';
+      } else {
+        bh += '<div class="glass-card"><h3 class="card-title">💰 Vendas (R$)</h3><div class="bill-row"><span class="bill-name">Bruto total · ' + ven.qtdTotal + (ven.qtdTotal === 1 ? ' venda' : ' vendas') + '</span><span class="bill-meta">' + C.fmtBRL(ven.brutoTotal) + '</span></div><p class="fineprint">O detalhamento (taxas, líquido e lucro) vem do resumo que o app Vendas calcula.</p></div>';
+      }
+    } else bh += vidaNotice('💰 Vendas', venSt, 'Vendas');
+    brlBox.innerHTML = bh || '<div class="glass-card"><p class="chart-empty">Sem dados do Brasil ainda — configure as pontes em ⚙️ Conexões.</p></div>';
+
+    /* ----- pill do nó no mapa ----- */
+    if (pill) {
+      pill.textContent = m.sobraPct != null ? 'sobra ' + Math.round(m.sobraPct) + '%'
+        : m.net != null ? C.fmtJPY(m.net) : '—';
+    }
   }
 
   /* ---------- Remessas (diário local) ---------- */
