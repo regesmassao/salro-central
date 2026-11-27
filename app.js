@@ -338,6 +338,28 @@ const SalroCalc = (() => {
     };
   }
 
+  /* ---- Banco (Yucho): estimativa de saldo por pessoa ----
+     Contas SEPARADAS: o salário de cada um cai só na conta dele,
+     então a estimativa é por pessoa, nunca do casal. Estimativa
+     do mês de UMA pessoa = líquido DELA no mês − saques em
+     dinheiro DELA no mês (lançados à mão na Central). saquesPessoa
+     são os lançamentos daquela pessoa (de qualquer mês); aqui
+     filtra pelo mês ym. A lista volta da mais recente para a
+     mais antiga, pronta para mostrar. Sem líquido (mês sem
+     cálculo no app Salário), a estimativa é null — não inventa. */
+  function bancoEstimativa(liquidoPessoa, saquesPessoa, ym) {
+    const list = (Array.isArray(saquesPessoa) ? saquesPessoa : [])
+      .filter((s) => s && typeof s.date === 'string' && s.date.slice(0, 7) === ym && isFinite(Number(s.amount)))
+      .map((s) => ({ id: s.id, date: s.date, amount: Number(s.amount) }))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const totalSaques = list.reduce((s, x) => s + x.amount, 0);
+    const liquido = liquidoPessoa == null || !isFinite(Number(liquidoPessoa)) ? null : Number(liquidoPessoa);
+    return {
+      ym, liquido, saques: list, totalSaques, nSaques: list.length,
+      estimativa: liquido != null ? liquido - totalSaques : null
+    };
+  }
+
   function painelVida(opts) {
     const now = (opts && opts.now) || new Date();
     const ym = ymOf(now);
@@ -510,7 +532,7 @@ const SalroCalc = (() => {
     ].join('\n');
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS, wiseCompleted, mergeRemessas };
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS, wiseCompleted, mergeRemessas, bancoEstimativa };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -526,7 +548,8 @@ if (typeof document !== 'undefined') (() => {
     wiseUrl: 'central-conn-wise-url', wiseKey: 'central-conn-wise-key',
     cacheSal: 'central-cache-salario', cacheIr: 'central-cache-ir', cacheRec: 'central-cache-recibos',
     cacheVen: 'central-cache-vendas', cacheWise: 'central-wise',
-    checklist: 'central-checklist', demo: 'central-demo', remessas: 'central-remessas'
+    checklist: 'central-checklist', demo: 'central-demo', remessas: 'central-remessas',
+    saques: 'central-saques'
   };
   const store = {
     get(k, fb) { try { const v = localStorage.getItem(k); return v == null ? fb : JSON.parse(v); } catch (e) { return fb; } },
@@ -1099,6 +1122,7 @@ if (typeof document !== 'undefined') (() => {
     lastEff = eff;
     renderHoje();
     renderVida();
+    renderBanco();
     renderSyncPill(eff);
     $('demoBanner').hidden = !isDemo();
     $('demoToggle').textContent = isDemo() ? 'Sair do modo demonstração' : 'Ver modo demonstração';
@@ -1473,6 +1497,82 @@ if (typeof document !== 'undefined') (() => {
     pill.textContent = fmtJpyCompact(tj);
   }
 
+  /* ---------- Banco (Yucho): estimativa por pessoa ----------
+     Diário LOCAL de saques em dinheiro (central-saques, só neste
+     aparelho, nunca sincronizado — como o diário de remessas).
+     Cada lançamento é de UMA pessoa, com a mesma identidade que
+     o app Salário usa ('principal' ou o id do funcionário),
+     porque as contas são separadas: o salário de cada um cai só
+     na conta dele. A estimativa do mês de cada um = líquido dele
+     no mês − saques dele no mês (SalroCalc.bancoEstimativa).
+     O saldo do casal (líquido − saiu, no nó e no Painel) NÃO
+     muda: é outra conta, a do mês da casa. A pill "banco ≈" do
+     nó soma as estimativas das contas e só aparece quando há
+     pelo menos um saque lançado no mês. */
+  function loadSaques() {
+    const v = store.get(LS.saques, []);
+    return Array.isArray(v) ? v.filter((s) => s && typeof s.emp === 'string' && typeof s.date === 'string' && isFinite(Number(s.amount))) : [];
+  }
+  function saveSaques(list) { store.set(LS.saques, list); renderBanco(); }
+  function renderBanco() {
+    const box = $('salBancoBox'), pill = $('hubNodeSalarioBanco'), pillVal = $('hubNodeSalarioBancoValue');
+    if (!box) return;
+    const hidePill = () => { if (pill) { pill.setAttribute('hidden', ''); pill.style.display = 'none'; } };
+    const st = lastEff && lastEff.sal;
+    if (!st || st.status !== 'ok' || !st.resp || !st.resp.exists || !st.resp.data || !st.resp.data.data) {
+      box.innerHTML = '<p class="chart-empty">Configure a ponte do Salário em ⚙️ Conexões para estimar o saldo de cada conta.</p>';
+      hidePill();
+      return;
+    }
+    const nowD = new Date();
+    const ym = SalroCalc.ymOf(nowD);
+    const m = SalroCalc.msjMonthYm(st.resp.data.data, ym);
+    if (!m.employees.length) {
+      box.innerHTML = '<p class="chart-empty">Sem funcionários no backup do Salário.</p>';
+      hidePill();
+      return;
+    }
+    const todayIso = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
+    const all = loadSaques();
+    let totalEst = 0, anyEst = false, anySaque = false;
+    box.innerHTML = m.employees.map((e) => {
+      const est = SalroCalc.bancoEstimativa(e.hasSnap ? e.net : null, all.filter((s) => s.emp === e.id), ym);
+      if (est.estimativa != null) { totalEst += est.estimativa; anyEst = true; }
+      if (est.nSaques > 0) anySaque = true;
+      return '<div class="banco-person">' +
+        '<div class="app-list-title">' + escHtml(e.name) + '</div>' +
+        '<div class="bill-row"><span class="bill-name">Entrou (líquido do mês)</span><span class="bill-meta">' +
+          (est.liquido != null ? SalroCalc.fmtJPY(est.liquido) : '— (sem cálculo no app)') + '</span></div>' +
+        '<div class="bill-row"><span class="bill-name">Saques no mês</span><span class="bill-meta">' +
+          (est.nSaques > 0
+            ? '−' + SalroCalc.fmtJPY(est.totalSaques) + ' · ' + est.nSaques + (est.nSaques === 1 ? ' lançamento' : ' lançamentos')
+            : SalroCalc.fmtJPY(0)) + '</span></div>' +
+        '<div class="bill-row total"><span class="bill-name">Estimativa na conta</span><span class="bill-meta">' +
+          (est.estimativa != null ? SalroCalc.fmtJPY(est.estimativa) : '—') + '</span></div>' +
+        (est.saques.length
+          ? '<ul class="check-list">' + est.saques.map((s) =>
+              '<li class="check-item"><div class="check-body"><div class="check-text">' + fmtDateShort(s.date) + '</div>' +
+              '<div class="check-due">' + SalroCalc.fmtJPY(s.amount) + '</div></div>' +
+              '<button type="button" class="check-del" data-saque-del="' + s.id + '" aria-label="Apagar saque">✕</button></li>').join('') + '</ul>'
+          : '') +
+        '<div class="conn-actions"><button type="button" class="btn-ghost" data-saque-open="' + escHtml(e.id) + '">+ Saque</button></div>' +
+        '<form class="rem-form saque-form" data-saque-form="' + escHtml(e.id) + '" hidden>' +
+          '<label class="conn-label">Data</label>' +
+          '<input type="date" class="saque-date" value="' + todayIso + '" required>' +
+          '<label class="conn-label">Valor (¥)</label>' +
+          '<input type="number" class="saque-amount" inputmode="numeric" min="1" step="1" placeholder="ex.: 20000" required>' +
+          '<div class="conn-actions"><button type="submit" class="btn-accent">Lançar saque</button></div>' +
+        '</form></div>';
+    }).join('');
+    if (pill && pillVal) {
+      if (anySaque && anyEst) {
+        pillVal.textContent = 'banco ≈ ' + fmtJpyCompact(totalEst);
+        pill.removeAttribute('hidden');
+        pill.style.display = '';
+      } else hidePill();
+    }
+  }
+
   /* ---------- Painéis (sheets) e menu lateral ---------- */
   function showBackdrop(on) { $('backdrop').hidden = !on; }
   function openSheet(id) {
@@ -1680,6 +1780,40 @@ if (typeof document !== 'undefined') (() => {
       if (!b) return;
       saveRemessas(loadRemessas().filter((r) => r.id !== b.getAttribute('data-rem-del')));
     });
+
+    // banco: abrir o formulário, lançar e apagar saques (o conteúdo
+    // do bloco é dinâmico — um formulário por pessoa —, então os
+    // eventos são delegados no contêiner fixo)
+    const bancoBox = $('salBancoBox');
+    if (bancoBox) {
+      bancoBox.addEventListener('click', (e) => {
+        const open = e.target.closest('[data-saque-open]');
+        if (open) {
+          const f = bancoBox.querySelector('[data-saque-form="' + open.getAttribute('data-saque-open') + '"]');
+          if (f) {
+            f.hidden = !f.hidden;
+            if (!f.hidden) { const a = f.querySelector('.saque-amount'); if (a) a.focus(); }
+          }
+          return;
+        }
+        const del = e.target.closest('[data-saque-del]');
+        if (del) saveSaques(loadSaques().filter((s) => s.id !== del.getAttribute('data-saque-del')));
+      });
+      bancoBox.addEventListener('submit', (e) => {
+        const form = e.target.closest('[data-saque-form]');
+        if (!form) return;
+        e.preventDefault();
+        const date = form.querySelector('.saque-date').value;
+        const amount = Number(form.querySelector('.saque-amount').value);
+        if (!date || !(amount > 0)) return;
+        const list = loadSaques();
+        list.push({
+          id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 999),
+          emp: form.getAttribute('data-saque-form'), date, amount
+        });
+        saveSaques(list);
+      });
+    }
 
     // primeira pintura a partir do cache, depois sincroniza
     renderAll({ sal: cachedState(LS.cacheSal), ir: cachedState(LS.cacheIr), rec: cachedState(LS.cacheRec), ven: cachedState(LS.cacheVen) });
