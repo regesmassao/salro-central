@@ -1206,6 +1206,22 @@ if (typeof document !== 'undefined') (() => {
       pill.textContent = m.sobraPct != null ? 'sobra ' + Math.round(m.sobraPct) + '%'
         : m.net != null ? C.fmtJPY(m.net) : '—';
     }
+    /* ----- etiqueta de sobra no nó do Salário: o MESMO m.sobraPct do
+       painel (nenhum cálculo novo) — a Central só lê os backups, nunca
+       escreve no app Salário. Sem base (sem cálculo do mês ou sem
+       itens do Recibos no mês), a etiqueta não aparece. ----- */
+    const salSobra = $('hubNodeSalarioSobra'), salSobraVal = $('hubNodeSalarioSobraValue');
+    if (salSobra && salSobraVal) {
+      if (m.sobraPct != null) {
+        salSobraVal.textContent = 'sobra ' + Math.round(m.sobraPct) + '%';
+        salSobra.classList.toggle('neg', m.sobraPct < 0);
+        salSobra.removeAttribute('hidden');
+        salSobra.style.display = '';
+      } else {
+        salSobra.setAttribute('hidden', '');
+        salSobra.style.display = 'none';
+      }
+    }
   }
 
   /* ---------- Remessas (diário local) ---------- */
