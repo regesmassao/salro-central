@@ -1,5 +1,5 @@
 /* Salro Central — service worker: rede primeiro, cache de reserva */
-const CACHE = 'salro-central-v2-6-5';
+const CACHE = 'salro-central-v2-6-6';
 const SHELL = [
   './',
   './index.html',

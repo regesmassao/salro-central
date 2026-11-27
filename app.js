@@ -487,52 +487,88 @@ if (typeof document !== 'undefined') (() => {
   };
   const hasConn = (app) => { const c = conn(app); return !!(c.url && c.key); };
 
-  /* ---------- Mapa-múndi pontilhado (grade ASCII estilizada) ---------- */
-  const WORLD_MAP = [
-    '',
-    '  #####                        #########  ###################',
-    ' #########                    ########### #####################',
-    '###########                    #########  ######################',
-    ' ##########                     #######   ####################',
-    '  ########                       #####     ##################',
-    '   ######                         ##########################',
-    '    ####                           ########################',
-    '     ##                             ####################',
-    '     ###                             #################',
-    '    #####                             ###############',
-    '    ######                             ##############',
-    '     ######                             ############',
-    '     ######                              ##########',
-    '     #####                                ########       ########',
-    '      ####                                ########      ##########',
-    '      ####                                 ######       ##########',
-    '       ###                                 #####         ########',
-    '       ###                                  ###           ######',
-    '        ##                                  #              ####',
-    '        #',
-    '', '', '', '', ''
+  /* ---------- Mapa-múndi: silhuetas simplificadas estilo tabuleiro
+     (v2.6.6, pedido do Reges): continentes reconhecíveis com contorno
+     leve e pontilhado interno; Brasil (contorno tan + nome) e Japão
+     (arquipélago em cobre + nome) destacados — os únicos nomes no mapa,
+     porque são os dois países que a Salro liga. Coordenadas no viewBox
+     360×256, Atlântico no centro, como no mapa pontilhado original. */
+  const LAND_POLYS = [
+    // América do Norte (com a baía de Hudson e a Flórida) + América Central
+    [[4, 48], [9, 31], [24, 23], [45, 19], [68, 23], [82, 29], [76, 42], [86, 47], [95, 41], [104, 45], [109, 52], [101, 57], [105, 64], [98, 71], [96, 78], [100, 84], [101, 89], [93, 85], [83, 86], [75, 90], [69, 97], [73, 103], [82, 108], [73, 104], [65, 95], [57, 86], [49, 76], [43, 65], [38, 55], [30, 46], [21, 50], [11, 51]],
+    // Groenlândia
+    [[96, 15], [112, 13], [119, 21], [109, 29], [96, 26]],
+    // América do Sul (a "barriga" pra leste e o estreitamento pro sul)
+    [[66, 108], [76, 104], [88, 106], [97, 110], [104, 116], [112, 121], [121, 128], [120, 136], [114, 146], [108, 156], [100, 166], [90, 175], [81, 184], [73, 192], [68, 180], [65, 162], [63, 143], [63, 126], [64, 116]],
+    // Eurásia (Escandinávia, a península da Índia e o Sudeste Asiático)
+    [[163, 74], [160, 64], [167, 57], [171, 51], [177, 45], [183, 39], [179, 29], [187, 20], [199, 18], [207, 24], [203, 34], [214, 24], [232, 18], [250, 21], [268, 14], [286, 19], [304, 14], [322, 17], [340, 20], [348, 26], [349, 36], [342, 46], [341, 54], [336, 64], [330, 74], [322, 80], [312, 88], [300, 96], [292, 106], [287, 116], [288, 127], [291, 134], [283, 118], [274, 105], [266, 100], [258, 112], [253, 127], [246, 112], [242, 99], [234, 93], [224, 96], [217, 86], [211, 77], [205, 72], [196, 70], [189, 73], [185, 65], [178, 63], [171, 67], [165, 71]],
+    // Ilhas Britânicas
+    [[159, 43], [165, 39], [168, 45], [164, 52], [158, 50]],
+    // Itália (a bota)
+    [[177, 60], [183, 63], [190, 71], [193, 76], [187, 75], [180, 67]],
+    // África (a protuberância oeste, o chifre a leste, o afunilamento pro sul)
+    [[164, 86], [178, 81], [198, 80], [213, 82], [217, 88], [223, 99], [233, 109], [235, 117], [226, 127], [218, 141], [211, 155], [205, 167], [197, 172], [189, 165], [183, 149], [179, 131], [175, 115], [166, 103], [158, 95], [161, 88]],
+    // Madagascar
+    [[221, 145], [227, 149], [225, 162], [219, 155]],
+    // Indonésia: Sumatra, Bornéu, Java e Nova Guiné
+    [[274, 123], [285, 131], [281, 136], [271, 127]],
+    [[295, 127], [306, 125], [308, 134], [297, 136]],
+    [[283, 140], [301, 139], [301, 144], [284, 144]],
+    [[312, 131], [330, 133], [328, 140], [314, 138]],
+    // Austrália + Tasmânia
+    [[282, 152], [296, 147], [312, 149], [326, 153], [331, 163], [325, 176], [311, 183], [294, 181], [284, 171], [280, 160]],
+    [[325, 187], [331, 186], [329, 192], [325, 191]]
   ];
+  // Brasil: contorno do país por cima da América do Sul
+  const BRAZIL_POLY = [[74, 112], [84, 109], [96, 112], [107, 116], [113, 120], [122, 127], [121, 135], [115, 145], [108, 156], [99, 164], [90, 171], [82, 165], [77, 153], [73, 141], [70, 130], [69, 120], [71, 115]];
+  // Japão: as quatro ilhas principais em arco — Hokkaido, Honshu, Shikoku, Kyushu
+  const JAPAN_POLYS = [
+    [[333, 27], [343, 22], [353, 27], [350, 38], [339, 39], [332, 33]],
+    [[353, 39], [344, 44], [335, 49], [327, 54], [321, 57], [322, 61], [325, 65], [330, 65], [334, 61], [331, 54], [340, 52], [347, 46], [354, 44]],
+    [[324, 68], [331, 68], [331, 72], [324, 72]],
+    [[312, 70], [320, 68], [323, 74], [319, 82], [311, 79]]
+  ];
+  function pointInPoly(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function polyPath(poly) {
+    return 'M' + poly.map((p) => p[0] + ',' + p[1]).join(' L') + ' Z';
+  }
   function buildWorld() {
     const g = $('worldDots');
     if (!g) return;
     const NS = 'http://www.w3.org/2000/svg';
-    WORLD_MAP.forEach((row, r) => {
-      for (let c = 0; c < row.length; c++) {
-        if (row[c] !== '#') continue;
-        const dot = document.createElementNS(NS, 'circle');
-        dot.setAttribute('cx', c * 5.45 + 2);
-        dot.setAttribute('cy', r * 7 + 32);
-        dot.setAttribute('r', 1.15);
-        g.appendChild(dot);
+    const mk = (tag, attrs) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      g.appendChild(el);
+      return el;
+    };
+    // contornos dos continentes
+    LAND_POLYS.forEach((p) => mk('path', { d: polyPath(p), 'class': 'land' }));
+    // Brasil destacado por cima da América do Sul
+    mk('path', { d: polyPath(BRAZIL_POLY), 'class': 'br' });
+    // Japão destacado em cobre, a leste da Ásia
+    JAPAN_POLYS.forEach((p) => mk('path', { d: polyPath(p), 'class': 'jp' }));
+    // pontilhado discreto DENTRO das terras (a identidade pontilhada
+    // continua) — fora das ilhas do Japão, que são cobre sólido
+    for (let y = 5; y < 254; y += 4.6) {
+      for (let x = 3; x < 358; x += 4.6) {
+        if (LAND_POLYS.some((p) => pointInPoly(x, y, p)) && !JAPAN_POLYS.some((p) => pointInPoly(x, y, p))) {
+          mk('circle', { cx: x.toFixed(1), cy: y.toFixed(1), r: 1.05 });
+        }
       }
-    });
-    // Japão em destaque: arco de pontinhos cobre a leste da Ásia
-    [[298, 38], [305, 42], [310, 48], [314, 55], [317, 62], [319, 69], [307, 35], [313, 43]].forEach(([x, y]) => {
-      const dot = document.createElementNS(NS, 'circle');
-      dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', 1.5);
-      dot.setAttribute('class', 'jp');
-      g.appendChild(dot);
-    });
+    }
+    // nomes: só os dois países que o app faz a ponte
+    const brLabel = mk('text', { x: 95, y: 141, 'class': 'country-label' });
+    brLabel.textContent = 'Brasil';
+    const jpLabel = mk('text', { x: 356, y: 19, 'class': 'country-label jp-label' });
+    jpLabel.textContent = 'Japão';
   }
 
   /* ---------- Demonstração (dados fictícios) ---------- */
