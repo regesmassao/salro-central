@@ -30,7 +30,7 @@
        Os pontinhos dos continentes são gerados pelo app.js a partir de um
        mapa ASCII estilizado; o Japão vem destacado em cobre. -->
   <div class="hub-map-wrap">
-  <svg id="hubSvg" viewBox="0 0 360 224" role="img" aria-label="Mapa-múndi da Salro: Japão e Brasil ligados pelos apps">
+  <svg id="hubSvg" viewBox="0 0 360 256" role="img" aria-label="Mapa-múndi da Salro: Japão e Brasil ligados pelos apps">
     <defs>
       <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#CD9264" stop-opacity=".2"/>
@@ -39,100 +39,97 @@
       </linearGradient>
     </defs>
     <g id="worldDots"></g>
-    <path class="hub-arc" d="M 278,46 Q 168,-6 60,92"/>
-    <path class="hub-arc" d="M 282,42 Q 268,22 257,28"/>
-    <path class="hub-arc" d="M 314,80 Q 328,88 331,95"/>
-    <path class="hub-arc" d="M 284,80 Q 270,94 265,99"/>
-    <path class="hub-arc" d="M 280,84 Q 235,138 192,150"/>
-    <g class="hub-center hub-node" data-target="sheet-hoje" tabindex="0" role="button" aria-label="Abrir o painel Hoje">
-      <circle cx="298" cy="60" r="42" class="map-node-hit"/>
-      <circle cx="298" cy="60" r="36" class="hub-center-halo"/>
-      <circle cx="298" cy="60" r="25" class="hub-center-circle"/>
-      <g transform="translate(298,61)" stroke="#091835" stroke-width="2.4" fill="none" stroke-linecap="round">
+    <path class="hub-arc" d="M 146,90 Q 104,58 77,49"/>
+    <path class="hub-arc" d="M 215,90 Q 255,57 281,51"/>
+    <path class="hub-arc" d="M 140,115 Q 100,108 60,125"/>
+    <path class="hub-arc" d="M 220,116 Q 262,110 302,129"/>
+    <path class="hub-arc" d="M 150,136 Q 102,166 87,190"/>
+    <path class="hub-arc" d="M 142,128 Q 118,166 163,187"/>
+    <path class="hub-arc" d="M 211,136 Q 258,168 277,192"/>
+    <g class="hub-center hub-node" data-target="sheet-vida" tabindex="0" role="button" aria-label="Abrir o Painel da Vida, com os dados de todos os apps">
+      <circle cx="180" cy="110" r="42" class="map-node-hit"/>
+      <circle cx="180" cy="110" r="36" class="hub-center-halo"/>
+      <circle cx="180" cy="110" r="25" class="hub-center-circle"/>
+      <g transform="translate(180,111)" stroke="#091835" stroke-width="2.4" fill="none" stroke-linecap="round">
         <path d="M0 13 V-3 M0 -3 C0 -9 -4.5 -10.8 -9 -12 M0 -3 C0 -9 4.5 -10.8 9 -12 M0 3 C-2.8 -0.5 -6.5 -1.2 -10 -0.5 M0 3 C2.8 -0.5 6.5 -1.2 10 -0.5"/>
       </g>
-      <circle cx="289" cy="48.6" r="2" fill="#091835"/><circle cx="307" cy="48.6" r="2" fill="#091835"/>
-      <circle cx="288" cy="60.5" r="1.7" fill="#091835"/><circle cx="308" cy="60.5" r="1.7" fill="#091835"/>
-      <path d="M298 40.5 l1.4 3.1 3.1 1.4 -3.1 1.4 -1.4 3.1 -1.4 -3.1 -3.1 -1.4 3.1 -1.4 Z" fill="#CD9264"/>
-      <text x="298" y="103" class="hub-center-label">SALRO</text>
+      <circle cx="171" cy="98.6" r="2" fill="#091835"/><circle cx="189" cy="98.6" r="2" fill="#091835"/>
+      <circle cx="170" cy="110.5" r="1.7" fill="#091835"/><circle cx="190" cy="110.5" r="1.7" fill="#091835"/>
+      <path d="M180 90.5 l1.4 3.1 3.1 1.4 -3.1 1.4 -1.4 3.1 -1.4 -3.1 -3.1 -1.4 3.1 -1.4 Z" fill="#CD9264"/>
+      <text x="180" y="153" class="hub-center-label">SALRO</text>
+      <g id="hubNodeVidaSobra" hidden>
+        <rect class="map-node-pill" x="144" y="158" width="72" height="14.5" rx="7.25"/>
+        <text x="180" y="167.5" class="map-node-value" id="hubNodeVidaValue"></text>
+      </g>
     </g>
     <g class="hub-node" data-target="sheet-salario" tabindex="0" role="button" aria-label="Abrir o painel do app Salário">
-      <circle cx="252" cy="34" r="27" class="map-node-hit"/>
-      <circle cx="252" cy="34" r="19" class="map-node-halo"/>
-      <circle cx="252" cy="34" r="13" class="map-node-circle"/>
-      <text x="252" y="38.5" class="map-node-emoji">🌳</text>
-      <text x="252" y="64" class="map-node-name">Salário</text>
-      <rect class="map-node-pill" x="220" y="65.5" width="64" height="14.5" rx="7.25"/>
-      <text x="252" y="75" class="map-node-value" id="hubNodeSalarioValue">—</text>
+      <circle cx="300" cy="40" r="27" class="map-node-hit"/>
+      <circle cx="300" cy="40" r="19" class="map-node-halo"/>
+      <circle cx="300" cy="40" r="13" class="map-node-circle"/>
+      <text x="300" y="44.5" class="map-node-emoji">🌳</text>
+      <text x="300" y="70" class="map-node-name">Salário</text>
+      <rect class="map-node-pill" x="268" y="71.5" width="64" height="14.5" rx="7.25"/>
+      <text x="300" y="81" class="map-node-value" id="hubNodeSalarioValue">—</text>
       <g id="hubNodeSalarioSobra" hidden>
-        <rect class="map-node-pill" x="220" y="82" width="64" height="14.5" rx="7.25"/>
-        <text x="252" y="91.5" class="map-node-value" id="hubNodeSalarioSobraValue"></text>
+        <rect class="map-node-pill" x="268" y="88" width="64" height="14.5" rx="7.25"/>
+        <text x="300" y="97.5" class="map-node-value" id="hubNodeSalarioSobraValue"></text>
       </g>
     </g>
     <g class="hub-node" data-target="sheet-ir" tabindex="0" role="button" aria-label="Abrir o painel do app Meu IR">
-      <circle cx="46" cy="104" r="27" class="map-node-hit"/>
-      <circle cx="46" cy="104" r="19" class="map-node-halo"/>
-      <circle cx="46" cy="104" r="13" class="map-node-circle"/>
-      <text x="46" y="108.5" class="map-node-emoji">📊</text>
-      <text x="46" y="134" class="map-node-name">Meu IR</text>
-      <rect class="map-node-pill" x="14" y="135.5" width="64" height="14.5" rx="7.25"/>
-      <text x="46" y="145" class="map-node-value" id="hubNodeIrValue">—</text>
+      <circle cx="38" cy="128" r="27" class="map-node-hit"/>
+      <circle cx="38" cy="128" r="19" class="map-node-halo"/>
+      <circle cx="38" cy="128" r="13" class="map-node-circle"/>
+      <text x="38" y="132.5" class="map-node-emoji">📊</text>
+      <text x="38" y="158" class="map-node-name">Meu IR</text>
+      <rect class="map-node-pill" x="6" y="159.5" width="64" height="14.5" rx="7.25"/>
+      <text x="38" y="169" class="map-node-value" id="hubNodeIrValue">—</text>
     </g>
     <g class="hub-node" data-target="sheet-recibos" tabindex="0" role="button" aria-label="Abrir o painel do app Recibos JP">
-      <circle cx="336" cy="104" r="27" class="map-node-hit"/>
-      <circle cx="336" cy="104" r="19" class="map-node-halo"/>
-      <circle cx="336" cy="104" r="13" class="map-node-circle"/>
-      <text x="336" y="108.5" class="map-node-emoji">🧾</text>
-      <text x="336" y="134" class="map-node-name">Recibos</text>
-      <rect class="map-node-pill" x="300" y="135.5" width="60" height="14.5" rx="7.25"/>
-      <text x="336" y="145" class="map-node-value" id="hubNodeRecibosValue">—</text>
-      <g class="node-badge" id="hubBadgeRecibos"><circle cx="351" cy="89" r="8.5"/><text x="351" y="92.5" id="hubBadgeRecibosText">!</text></g>
+      <circle cx="324" cy="132" r="27" class="map-node-hit"/>
+      <circle cx="324" cy="132" r="19" class="map-node-halo"/>
+      <circle cx="324" cy="132" r="13" class="map-node-circle"/>
+      <text x="324" y="136.5" class="map-node-emoji">🧾</text>
+      <text x="324" y="162" class="map-node-name">Recibos</text>
+      <rect class="map-node-pill" x="294" y="163.5" width="60" height="14.5" rx="7.25"/>
+      <text x="324" y="173" class="map-node-value" id="hubNodeRecibosValue">—</text>
+      <g class="node-badge" id="hubBadgeRecibos"><circle cx="339" cy="117" r="8.5"/><text x="339" y="120.5" id="hubBadgeRecibosText">!</text></g>
     </g>
     <g class="hub-node" data-target="sheet-vendas" tabindex="0" role="button" aria-label="Abrir o painel do app Salro Vendas">
-      <circle cx="92" cy="146" r="27" class="map-node-hit"/>
-      <circle cx="92" cy="146" r="19" class="map-node-halo"/>
-      <circle cx="92" cy="146" r="13" class="map-node-circle"/>
-      <text x="92" y="150.5" class="map-node-emoji">💰</text>
-      <text x="92" y="176" class="map-node-name">Vendas</text>
-      <rect class="map-node-pill" x="60" y="177.5" width="64" height="14.5" rx="7.25"/>
-      <text x="92" y="187" class="map-node-value" id="hubNodeVendasValue">—</text>
+      <circle cx="70" cy="204" r="27" class="map-node-hit"/>
+      <circle cx="70" cy="204" r="19" class="map-node-halo"/>
+      <circle cx="70" cy="204" r="13" class="map-node-circle"/>
+      <text x="70" y="208.5" class="map-node-emoji">💰</text>
+      <text x="70" y="234" class="map-node-name">Vendas</text>
+      <rect class="map-node-pill" x="38" y="235.5" width="64" height="14.5" rx="7.25"/>
+      <text x="70" y="245" class="map-node-value" id="hubNodeVendasValue">—</text>
     </g>
     <g class="hub-node" data-target="sheet-checklist" tabindex="0" role="button" aria-label="Abrir o checklist Minha vida no Japão">
-      <circle cx="258" cy="108" r="27" class="map-node-hit"/>
-      <circle cx="258" cy="108" r="19" class="map-node-halo"/>
-      <circle cx="258" cy="108" r="13" class="map-node-circle"/>
-      <text x="258" y="112.5" class="map-node-emoji">✅</text>
-      <text x="258" y="138" class="map-node-name">Checklist</text>
-      <rect class="map-node-pill" x="219" y="139" width="78" height="14.5" rx="7.25"/>
-      <text x="258" y="149" class="map-node-value" id="hubNodeChecklistValue">—</text>
-      <g class="node-badge" id="hubBadgeChecklist"><circle cx="273" cy="93" r="8.5"/><text x="273" y="96.5" id="hubBadgeChecklistText">!</text></g>
+      <circle cx="294" cy="206" r="27" class="map-node-hit"/>
+      <circle cx="294" cy="206" r="19" class="map-node-halo"/>
+      <circle cx="294" cy="206" r="13" class="map-node-circle"/>
+      <text x="294" y="210.5" class="map-node-emoji">✅</text>
+      <text x="294" y="236" class="map-node-name">Checklist</text>
+      <rect class="map-node-pill" x="255" y="237.5" width="78" height="14.5" rx="7.25"/>
+      <text x="294" y="247" class="map-node-value" id="hubNodeChecklistValue">—</text>
+      <g class="node-badge" id="hubBadgeChecklist"><circle cx="309" cy="191" r="8.5"/><text x="309" y="194.5" id="hubBadgeChecklistText">!</text></g>
     </g>
     <g class="hub-node" data-target="sheet-cofre" tabindex="0" role="button" aria-label="Abrir o cofre de senhas">
-      <circle cx="170" cy="156" r="27" class="map-node-hit"/>
-      <circle cx="170" cy="156" r="19" class="map-node-halo"/>
-      <circle cx="170" cy="156" r="13" class="map-node-circle"/>
-      <text x="170" y="160.5" class="map-node-emoji">🔐</text>
-      <text x="170" y="186" class="map-node-name">Senhas</text>
-      <rect class="map-node-pill" x="138" y="187.5" width="64" height="14.5" rx="7.25"/>
-      <text x="170" y="197" class="map-node-value">4 pontes</text>
+      <circle cx="180" cy="208" r="27" class="map-node-hit"/>
+      <circle cx="180" cy="208" r="19" class="map-node-halo"/>
+      <circle cx="180" cy="208" r="13" class="map-node-circle"/>
+      <text x="180" y="212.5" class="map-node-emoji">🔐</text>
+      <text x="180" y="238" class="map-node-name">Senhas</text>
+      <rect class="map-node-pill" x="148" y="239.5" width="64" height="14.5" rx="7.25"/>
+      <text x="180" y="249" class="map-node-value">4 pontes</text>
     </g>
     <g class="hub-node" data-target="sheet-remessas" tabindex="0" role="button" aria-label="Abrir o diário de remessas">
-      <circle cx="168" cy="30" r="27" class="map-node-hit"/>
-      <circle cx="168" cy="30" r="19" class="map-node-halo"/>
-      <circle cx="168" cy="30" r="13" class="map-node-circle"/>
-      <text x="168" y="34.5" class="map-node-emoji">✈️</text>
-      <text x="168" y="60" class="map-node-name">Remessas</text>
-      <rect class="map-node-pill" x="134" y="61.5" width="68" height="14.5" rx="7.25"/>
-      <text x="168" y="71" class="map-node-value" id="hubNodeRemessasValue">—</text>
-    </g>
-    <g class="hub-node" data-target="sheet-vida" tabindex="0" role="button" aria-label="Abrir o Painel da Vida, com os dados de todos os apps">
-      <circle cx="318" cy="176" r="27" class="map-node-hit"/>
-      <circle cx="318" cy="176" r="19" class="map-node-halo"/>
-      <circle cx="318" cy="176" r="13" class="map-node-circle"/>
-      <text x="318" y="180.5" class="map-node-emoji">📈</text>
-      <text x="318" y="206" class="map-node-name">Painel da Vida</text>
-      <rect class="map-node-pill" x="276" y="207.5" width="84" height="14.5" rx="7.25"/>
-      <text x="318" y="217" class="map-node-value" id="hubNodeVidaValue">—</text>
+      <circle cx="58" cy="38" r="27" class="map-node-hit"/>
+      <circle cx="58" cy="38" r="19" class="map-node-halo"/>
+      <circle cx="58" cy="38" r="13" class="map-node-circle"/>
+      <text x="58" y="42.5" class="map-node-emoji">✈️</text>
+      <text x="58" y="68" class="map-node-name">Remessas</text>
+      <rect class="map-node-pill" x="24" y="69.5" width="68" height="14.5" rx="7.25"/>
+      <text x="58" y="79" class="map-node-value" id="hubNodeRemessasValue">—</text>
     </g>
   </svg>
   </div>
@@ -145,7 +142,7 @@
     <span class="drawer-title"><span class="wm-spark" aria-hidden="true">✦</span> Salro Central</span>
     <button type="button" class="sheet-close" id="drawerClose" aria-label="Fechar o menu">✕</button>
   </div>
-  <p class="drawer-version"><span class="version-tag">v2.6.3</span></p>
+  <p class="drawer-version"><span class="version-tag">v2.6.4</span></p>
   <button type="button" class="drawer-item" data-sheet="sheet-hoje">📅 Hoje — atenção e resumo</button>
   <button type="button" class="drawer-item" data-sheet="sheet-vida">📈 Painel da Vida — todos os apps</button>
   <button type="button" class="drawer-item" data-sheet="sheet-salario">🌳 Salário</button>
@@ -158,7 +155,7 @@
   <button type="button" class="drawer-item" data-sheet="sheet-conexoes">⚙️ Conexões</button>
   <hr class="sep">
   <button type="button" class="drawer-item" id="drawerSync">↻ Sincronizar agora</button>
-  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.6.3</p>
+  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.6.4</p>
 </nav>
 <div id="backdrop" class="backdrop" hidden></div>
 

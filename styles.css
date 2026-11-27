@@ -111,6 +111,8 @@ g.hub-node:nth-of-type(6) .map-node-halo{animation-delay:2.1s}
 #hubNodeSalarioSobra[hidden]{display:none}
 #hubNodeSalarioSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
 #hubNodeSalarioSobra.neg .map-node-value{fill:var(--danger)}
+#hubNodeVidaSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
+#hubNodeVidaSobra.neg .map-node-value{fill:var(--danger)}
 .glass-card.flash{border-color:var(--copper);box-shadow:0 0 0 2px rgba(205,146,100,.55),0 12px 32px rgba(2,6,18,.45)}
 
 /* ---------- Cartões de vidro ---------- */
