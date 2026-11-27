@@ -143,7 +143,7 @@
     <span class="drawer-title"><span class="wm-spark" aria-hidden="true">✦</span> Salro Central</span>
     <button type="button" class="sheet-close" id="drawerClose" aria-label="Fechar o menu">✕</button>
   </div>
-  <p class="drawer-version"><span class="version-tag">v2.6.6</span></p>
+  <p class="drawer-version"><span class="version-tag">v2.6.7</span></p>
   <button type="button" class="drawer-item" data-sheet="sheet-hoje">📅 Hoje — atenção e resumo</button>
   <button type="button" class="drawer-item" data-sheet="sheet-vida">📈 Painel da Vida — todos os apps</button>
   <button type="button" class="drawer-item" data-sheet="sheet-salario">🌳 Salário</button>
@@ -156,7 +156,7 @@
   <button type="button" class="drawer-item" data-sheet="sheet-conexoes">⚙️ Conexões</button>
   <hr class="sep">
   <button type="button" class="drawer-item" id="drawerSync">↻ Sincronizar agora</button>
-  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.6.6</p>
+  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.6.7</p>
 </nav>
 <div id="backdrop" class="backdrop" hidden></div>
 
@@ -305,7 +305,7 @@
             <button type="submit" class="btn-accent">Anotar remessa</button>
           </div>
         </form>
-        <p class="fineprint">Diário das suas remessas (Wise): fica salvo só neste aparelho. A taxa mostrada é a efetiva de cada envio — quanto de real entrou por ¥ 1.000 enviados.</p>
+        <p class="fineprint">Diário das suas remessas: as anotações manuais ficam salvas só neste aparelho. Com a ponte da Wise configurada em ⚙️ Conexões, as transferências reais entram sozinhas, marcadas como <strong>Wise</strong> — e uma anotação manual da mesma remessa (mesma data e mesmo valor em ¥) aparece uma vez só, sem apagar a anotação. A taxa mostrada é a efetiva de cada envio — quanto de real entrou por ¥ 1.000 enviados.</p>
       </div>
     </div>
   </div>
@@ -352,6 +352,10 @@
         <input type="url" id="connVendasUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
         <label class="conn-label" for="connVendasKey">Chave secreta do Vendas</label>
         <input type="text" id="connVendasKey" placeholder="chave…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connWiseUrl">✈️ Ponte da Wise (Remessas) — link do script</label>
+        <input type="url" id="connWiseUrl" placeholder="https://script.google.com/macros/s/…" autocomplete="off" spellcheck="false">
+        <label class="conn-label" for="connWiseKey">Chave secreta da Wise</label>
+        <input type="text" id="connWiseKey" placeholder="chave…" autocomplete="off" spellcheck="false">
         <div class="conn-actions">
           <button type="button" id="connSave" class="btn-accent">Salvar conexões</button>
           <button type="button" id="syncNow" class="btn-ghost">↻ Sincronizar agora</button>
@@ -370,6 +374,7 @@
         <div class="link-row"><span class="link-name">📊 IR</span><span class="link-state" data-link-state="ir"></span><button type="button" class="btn-ghost" data-link-copy="ir">Copiar texto</button></div>
         <div class="link-row"><span class="link-name">🧾 Recibos</span><span class="link-state" data-link-state="rec"></span><button type="button" class="btn-ghost" data-link-copy="rec">Copiar texto</button></div>
         <div class="link-row"><span class="link-name">💰 Vendas</span><span class="link-state" data-link-state="ven"></span><button type="button" class="btn-ghost" data-link-copy="ven">Copiar texto</button></div>
+        <div class="link-row"><span class="link-name">✈️ Wise</span><span class="link-state" data-link-state="wise"></span><button type="button" class="btn-ghost" data-link-copy="wise">Copiar texto</button></div>
         <p class="conn-status" id="linkStatus"></p>
         <p class="fineprint">⚠️ O texto contém a chave da ponte — ela é uma senha. Cole só no seu próprio assistente, nunca em grupos ou com outras pessoas.</p>
       </div>

@@ -2,7 +2,7 @@
 /* Salro Central — dashboard pessoal.
    Lê SOMENTE os backups que os apps Salário, IR, Recibos e Vendas
    guardam no Drive (via as pontes Apps Script que o dono configura
-   em ⚙️ Conexões).
+   em ⚙️ Conexões) e as transferências da ponte Wise (só leitura).
    Link e chave das pontes ficam só no localStorage deste aparelho —
    nunca no código, nunca em exportações. Os apps continuam
    independentes; aqui é só leitura. */
@@ -297,6 +297,47 @@ const SalroCalc = (() => {
     return { market: ok && any ? market : null, marketDate: mDate };
   }
 
+  /* ---- Remessas: diário manual + ponte Wise ----
+     A ponte Wise devolve as transferências JPY→BRL (mais recentes
+     primeiro), cada uma {id, date, jpy, brl, rate, status}. Só
+     contam as CONCLUÍDAS (outgoing_payment_sent / funds_converted);
+     cancelada ou qualquer outro status fica fora da lista e dos
+     totais. Dedupe: um lançamento manual e uma transferência da
+     Wise são a MESMA remessa quando data E valor em ¥ batem —
+     aparece uma vez só (a da Wise); o lançamento manual continua
+     guardado no diário. ¥ e R$ sempre separados, sem conversão. */
+  const WISE_DONE = { outgoing_payment_sent: true, funds_converted: true };
+  function wiseCompleted(transfers) {
+    if (!Array.isArray(transfers)) return [];
+    return transfers
+      .filter((t) => t && WISE_DONE[t.status] === true &&
+        typeof t.date === 'string' && isFinite(Number(t.jpy)) && isFinite(Number(t.brl)))
+      .map((t) => ({
+        id: 'wise-' + t.id, wiseId: t.id, date: t.date,
+        jpy: Number(t.jpy), brl: Number(t.brl),
+        rate: isFinite(Number(t.rate)) ? Number(t.rate) : null,
+        source: 'wise'
+      }));
+  }
+  function mergeRemessas(diary, transfers) {
+    const wise = wiseCompleted(transfers);
+    const wiseKeys = {};
+    wise.forEach((w) => { wiseKeys[w.date + '|' + w.jpy] = true; });
+    const manual = (Array.isArray(diary) ? diary : [])
+      .filter((r) => r && typeof r.date === 'string' && isFinite(Number(r.jpy)) && isFinite(Number(r.brl)))
+      .filter((r) => !wiseKeys[r.date + '|' + Number(r.jpy)])
+      .map((r) => ({ id: r.id, date: r.date, jpy: Number(r.jpy), brl: Number(r.brl), source: 'manual' }));
+    const list = wise.concat(manual)
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return {
+      list,
+      count: list.length,
+      wiseCount: wise.length,
+      totalJpy: list.reduce((s, r) => s + r.jpy, 0),
+      totalBrl: list.reduce((s, r) => s + r.brl, 0)
+    };
+  }
+
   function painelVida(opts) {
     const now = (opts && opts.now) || new Date();
     const ym = ymOf(now);
@@ -422,11 +463,33 @@ const SalroCalc = (() => {
     sal: { nome: 'Salro Salário', dica: 'Os dados são um despejo das chaves internas do app (prefixo msj-); os meses fechados ficam nas chaves msj-v4-3-months-AAAA-MM e os dias nas chaves msj-v4-2-days-AAAA-MM-DD.' },
     ir: { nome: 'Salro IR (Minha Declaração de IR)', dica: 'Os dados têm assets (ativos), operations (operações), histProventos (proventos por mês) e quotes (cotações manuais).' },
     rec: { nome: 'Salro Recibos (Meus Recibos JP)', dica: 'Os dados têm items: a lista de recibos, contas com vencimento e promoções fotografados.' },
-    ven: { nome: 'Salro Vendas', dica: 'Os dados têm as vendas, despesas, saques e campanhas registradas no app, além de um resumo.' }
+    ven: { nome: 'Salro Vendas', dica: 'Os dados têm as vendas, despesas, saques e campanhas registradas no app, além de um resumo.' },
+    wise: { nome: 'Wise — Remessas (ponte da Salro Central)', dica: 'A ponte é SÓ LEITURA: ela devolve as transferências Japão → Brasil (JPY→BRL) feitas na Wise.' }
   };
   function linkPrompt(appKey, url, key) {
     const app = LINK_APPS[appKey];
     if (!app || !url || !key) return '';
+    if (appKey === 'wise') {
+      /* A ponte da Wise NÃO segue o envelope de backup dos apps:
+         é uma leitura só, com a ação "remessas" — o texto precisa
+         dizer isso, senão o assistente tenta ler/escrever o
+         envelope errado. */
+      return [
+        'Você agora está conectado à minha ponte da Wise (padrão Salro Link, SOMENTE LEITURA). Ela lê as minhas transferências na Wise e fica no meu próprio Google Drive:',
+        '- Link da ponte: ' + url,
+        '- Chave: ' + key,
+        '',
+        'COMO LER: faça GET em "' + url + '?action=remessas&key=' + key + '". A resposta é um JSON {ok, updatedAt, count, transfers} — transfers é a lista das minhas transferências JPY→BRL, mais recentes primeiro, cada uma com {id, date, jpy, brl, rate, status}. Status "outgoing_payment_sent" e "funds_converted" = concluída; "cancelled" (ou qualquer outro status) = NÃO concluída — não conte nos totais. ' + app.dica,
+        'ESCREVER: esta ponte não aceita escrita, é só leitura. Nunca tente POST nela.',
+        '',
+        'REGRAS DE SEGURANÇA (obrigatórias):',
+        '1. Nunca mostre a minha chave em respostas, arquivos ou registros; ela é uma senha.',
+        '2. Valores e datas devem ser fiéis à fonte — o que não der para ler com segurança fica em branco, nunca inventado.',
+        '3. Valores em ienes (¥) e em reais (R$) sempre separados; se converter, diga a taxa usada.',
+        '',
+        'Para confirmar que entendeu: leia a ponte agora e me diga quantas transferências concluídas encontrou e os totais em ¥ e em R$.'
+      ].join('\n');
+    }
     return [
       'Você agora está conectado ao meu app ' + app.nome + ' (padrão Salro Link). Meus dados ficam numa ponte na nuvem, no meu próprio Google Drive:',
       '- Link da ponte: ' + url,
@@ -447,7 +510,7 @@ const SalroCalc = (() => {
     ].join('\n');
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS };
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS, wiseCompleted, mergeRemessas };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -460,8 +523,9 @@ if (typeof document !== 'undefined') (() => {
     irUrl: 'central-conn-ir-url', irKey: 'central-conn-ir-key',
     recUrl: 'central-recibosUrl', recKey: 'central-recibosKey',
     venUrl: 'central-conn-vendas-url', venKey: 'central-conn-vendas-key',
+    wiseUrl: 'central-conn-wise-url', wiseKey: 'central-conn-wise-key',
     cacheSal: 'central-cache-salario', cacheIr: 'central-cache-ir', cacheRec: 'central-cache-recibos',
-    cacheVen: 'central-cache-vendas',
+    cacheVen: 'central-cache-vendas', cacheWise: 'central-wise',
     checklist: 'central-checklist', demo: 'central-demo', remessas: 'central-remessas'
   };
   const store = {
@@ -475,7 +539,8 @@ if (typeof document !== 'undefined') (() => {
     sal: { url: LS.salUrl, key: LS.salKey },
     ir: { url: LS.irUrl, key: LS.irKey },
     rec: { url: LS.recUrl, key: LS.recKey },
-    ven: { url: LS.venUrl, key: LS.venKey }
+    ven: { url: LS.venUrl, key: LS.venKey },
+    wise: { url: LS.wiseUrl, key: LS.wiseKey }
   };
   const CACHE_KEYS = { sal: LS.cacheSal, ir: LS.cacheIr, rec: LS.cacheRec, ven: LS.cacheVen };
   const conn = (app) => {
@@ -981,9 +1046,39 @@ if (typeof document !== 'undefined') (() => {
         if (!isNaN(t) && (latest === null || t > latest)) latest = t;
       }
     });
+    const wc = store.get(LS.cacheWise, null);
+    if (wc && wc.syncedAt) {
+      const t = new Date(wc.syncedAt).getTime();
+      if (!isNaN(t) && (latest === null || t > latest)) latest = t;
+    }
     if (latest === null) { pill.hidden = true; return; }
     pill.textContent = 'sincronizado · ' + new Date(latest).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     pill.hidden = false;
+  }
+  /* ---------- Ponte Wise (Remessas): SÓ LEITURA ----------
+     Diferente das outras pontes: a ação é "remessas" (não "read")
+     e a resposta já é a lista de transferências, sem envelope de
+     backup. O retorno fica em cache neste aparelho (central-wise,
+     com o horário da sincronização) e o painel de Remessas junta
+     com o diário manual. Erro de leitura mantém o cache anterior. */
+  async function syncWise() {
+    if (!hasConn('wise')) { window.__centralWiseError = false; return; }
+    try {
+      const c = conn('wise');
+      const sep = c.url.indexOf('?') >= 0 ? '&' : '?';
+      const r = await fetch(c.url + sep + 'key=' + encodeURIComponent(c.key) + '&action=remessas');
+      if (!r.ok) throw new Error('http ' + r.status);
+      const j = await r.json();
+      if (!j || j.ok === false || !Array.isArray(j.transfers)) throw new Error((j && j.error) || 'resposta inválida');
+      store.set(LS.cacheWise, { syncedAt: new Date().toISOString(), updatedAt: j.updatedAt || null, transfers: j.transfers });
+      window.__centralWiseError = false;
+    } catch (e) {
+      window.__centralWiseError = true;
+    }
+    renderRemessas();
+    renderHoje();
+    renderVida();
+    renderSyncPill(lastEff || {});
   }
   let lastEff = null;
   function renderAll(status) {
@@ -1014,12 +1109,14 @@ if (typeof document !== 'undefined') (() => {
     const status = {};
     await Promise.all([syncApp('sal', status), syncApp('ir', status), syncApp('rec', status), syncApp('ven', status)]);
     renderAll(status);
+    await syncWise();
     if (manual) {
       const parts = [];
       parts.push(hasConn('sal') ? (status.sal.status === 'ok' ? '<span class="ok">Salário ✓</span>' : '<span class="err">Salário: não foi possível ler — confira link e chave</span>') : 'Salário: ponte não configurada');
       parts.push(hasConn('ir') ? (status.ir.status === 'ok' ? '<span class="ok">IR ✓</span>' : '<span class="err">IR: não foi possível ler — confira link e chave</span>') : 'IR: ponte não configurada');
       parts.push(hasConn('rec') ? (status.rec.status === 'ok' ? '<span class="ok">Recibos ✓</span>' : '<span class="err">Recibos: não foi possível ler — confira link e chave</span>') : 'Recibos: ponte não configurada');
       parts.push(hasConn('ven') ? (status.ven.status === 'ok' ? '<span class="ok">Vendas ✓</span>' : '<span class="err">Vendas: não foi possível ler — confira link e chave</span>') : 'Vendas: ponte não configurada');
+      parts.push(hasConn('wise') ? (!window.__centralWiseError ? '<span class="ok">Wise ✓</span>' : '<span class="err">Wise: não foi possível ler — confira link e chave</span>') : 'Wise: ponte não configurada');
       statusEl.innerHTML = parts.join(' · ');
     }
     window.__centralStatus = status;
@@ -1118,10 +1215,9 @@ if (typeof document !== 'undefined') (() => {
         parts.push('<div class="bill-row"><span class="bill-name">💰 Vendas do mês</span><span class="bill-meta">' + vs.mes.qtd + (vs.mes.qtd === 1 ? ' venda' : ' vendas') + ' · lucro ' + SalroCalc.fmtBRL(vs.mes.lucro) + '</span></div>');
       }
     }
-    const rems = loadRemessas();
-    if (rems.length) {
-      const tj = rems.reduce((s2, r) => s2 + (Number(r.jpy) || 0), 0);
-      parts.push('<div class="bill-row"><span class="bill-name">✈️ Remessas anotadas</span><span class="bill-meta">' + SalroCalc.fmtJPY(tj) + ' enviados</span></div>');
+    const remsM = mergedRemessas();
+    if (remsM.list.length) {
+      parts.push('<div class="bill-row"><span class="bill-name">✈️ ' + (remsM.wiseCount > 0 ? 'Remessas Japão → Brasil' : 'Remessas anotadas') + '</span><span class="bill-meta">' + SalroCalc.fmtJPY(remsM.totalJpy) + ' enviados</span></div>');
     }
     rs.innerHTML = parts.length ? parts.join('') : '<p class="chart-empty">Configure as pontes em ⚙️ Conexões para ver o resumo.</p>';
   }
@@ -1161,7 +1257,7 @@ if (typeof document !== 'undefined') (() => {
     const irData = irSt.kind === 'ok' ? irSt.resp.data : null;
     const venData = venSt.kind === 'ok' ? venSt.resp.data : null;
     const C = SalroCalc;
-    const p = C.painelVida({ salInner, recData, irData, venData, remessas: loadRemessas(), now: new Date() });
+    const p = C.painelVida({ salInner, recData, irData, venData, remessas: mergedRemessas().list, now: new Date() });
     const m = p.yen.month, yr = p.yen.year;
 
     /* ----- bloco ¥ ----- */
@@ -1223,7 +1319,8 @@ if (typeof document !== 'undefined') (() => {
       }
     }
     if (p.yen.remessas.count > 0) {
-      yh += '<div class="glass-card"><div class="bill-row"><span class="bill-name">✈️ Remessas enviadas (diário local)</span><span class="bill-meta">' + C.fmtJPY(p.yen.remessas.jpy) + ' · ' + p.yen.remessas.count + (p.yen.remessas.count === 1 ? ' envio' : ' envios') + '</span></div></div>';
+      const remLabel = mergedRemessas().wiseCount > 0 ? '✈️ Remessas enviadas (Wise + diário)' : '✈️ Remessas enviadas (diário local)';
+      yh += '<div class="glass-card"><div class="bill-row"><span class="bill-name">' + remLabel + '</span><span class="bill-meta">' + C.fmtJPY(p.yen.remessas.jpy) + ' · ' + p.yen.remessas.count + (p.yen.remessas.count === 1 ? ' envio' : ' envios') + '</span></div></div>';
     }
     yenBox.innerHTML = yh || '<div class="glass-card"><p class="chart-empty">Sem dados do Japão ainda — configure as pontes em ⚙️ Conexões.</p></div>';
 
@@ -1320,12 +1417,24 @@ if (typeof document !== 'undefined') (() => {
     }
   }
 
-  /* ---------- Remessas (diário local) ---------- */
+  /* ---------- Remessas (diário local + ponte Wise) ----------
+     A lista e os totais são SEMPRE o conjunto juntado e sem
+     duplicar (SalroCalc.mergeRemessas): transferências concluídas
+     da Wise (automáticas, só leitura, marcadas "Wise") + anotações
+     manuais do diário. Sem a ponte configurada, é só o diário —
+     comportamento de sempre. */
   function loadRemessas() {
     const v = store.get(LS.remessas, []);
     return Array.isArray(v) ? v.filter((r) => r && r.date && isFinite(Number(r.jpy)) && isFinite(Number(r.brl))) : [];
   }
-  function saveRemessas(list) { store.set(LS.remessas, list); renderRemessas(); renderHoje(); }
+  function loadWiseTransfers() {
+    const c = store.get(LS.cacheWise, null);
+    return c && Array.isArray(c.transfers) ? c.transfers : [];
+  }
+  function mergedRemessas() {
+    return SalroCalc.mergeRemessas(loadRemessas(), loadWiseTransfers());
+  }
+  function saveRemessas(list) { store.set(LS.remessas, list); renderRemessas(); renderHoje(); renderVida(); }
   function fmtJpyCompact(v) {
     if (v >= 10000) return '¥ ' + Math.round(v / 1000).toLocaleString('pt-BR') + ' mil';
     return SalroCalc.fmtJPY(v);
@@ -1333,25 +1442,30 @@ if (typeof document !== 'undefined') (() => {
   function renderRemessas() {
     const ul = $('remList'), box = $('remResumo'), pill = $('hubNodeRemessasValue');
     if (!ul || !box || !pill) return;
-    const list = loadRemessas().slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+    const merged = mergedRemessas();
+    const list = merged.list;
     if (!list.length) {
       box.innerHTML = '<p class="chart-empty">Nenhuma remessa anotada ainda.</p>';
       ul.innerHTML = '';
       pill.textContent = '—';
       return;
     }
-    const tj = list.reduce((s, r) => s + Number(r.jpy || 0), 0);
-    const tb = list.reduce((s, r) => s + Number(r.brl || 0), 0);
+    const tj = merged.totalJpy, tb = merged.totalBrl;
     const taxa = tj > 0 ? (tb / tj * 1000) : 0;
     box.innerHTML =
       '<div class="bill-row"><span class="bill-name">Total enviado</span><span class="bill-meta">' + SalroCalc.fmtJPY(tj) + '</span></div>' +
       '<div class="bill-row"><span class="bill-name">Total recebido</span><span class="bill-meta">' + SalroCalc.fmtBRL(tb) + '</span></div>' +
-      '<div class="bill-row"><span class="bill-name">Taxa média efetiva</span><span class="bill-meta">R$ ' + taxa.toFixed(2).replace('.', ',') + ' por ¥ 1.000</span></div>';
+      '<div class="bill-row"><span class="bill-name">Taxa média efetiva</span><span class="bill-meta">R$ ' + taxa.toFixed(2).replace('.', ',') + ' por ¥ 1.000</span></div>' +
+      (merged.wiseCount > 0
+        ? '<div class="bill-row"><span class="bill-name">↳ via Wise (automático)</span><span class="bill-meta">' + merged.wiseCount + (merged.wiseCount === 1 ? ' remessa' : ' remessas') + '</span></div>'
+        : '');
     ul.innerHTML = list.map((r) => {
       const t = Number(r.jpy) > 0 ? (Number(r.brl) / Number(r.jpy) * 1000) : 0;
       return '<li class="check-item"><div class="check-body"><div class="check-text"></div>' +
-        '<div class="check-due">' + SalroCalc.fmtJPY(r.jpy) + ' → ' + SalroCalc.fmtBRL(r.brl) + ' · R$ ' + t.toFixed(2).replace('.', ',') + '/¥1.000</div></div>' +
-        '<button type="button" class="check-del" data-rem-del="' + r.id + '" aria-label="Apagar remessa">✕</button></li>';
+        '<div class="check-due">' + SalroCalc.fmtJPY(r.jpy) + ' → ' + SalroCalc.fmtBRL(r.brl) + ' · R$ ' + t.toFixed(2).replace('.', ',') + '/¥1.000' + (r.source === 'wise' ? ' · Wise' : '') + '</div></div>' +
+        (r.source === 'manual'
+          ? '<button type="button" class="check-del" data-rem-del="' + r.id + '" aria-label="Apagar remessa">✕</button>'
+          : '') + '</li>';
     }).join('');
     ul.querySelectorAll('.check-item').forEach((li, i) => {
       li.querySelector('.check-text').textContent = fmtDateShort(list[i].date);
@@ -1427,6 +1541,8 @@ if (typeof document !== 'undefined') (() => {
     $('connRecibosKey').value = store.getRaw(LS.recKey, '');
     $('connVendasUrl').value = store.getRaw(LS.venUrl, '');
     $('connVendasKey').value = store.getRaw(LS.venKey, '');
+    $('connWiseUrl').value = store.getRaw(LS.wiseUrl, '');
+    $('connWiseKey').value = store.getRaw(LS.wiseKey, '');
     $('connSave').addEventListener('click', () => {
       store.setRaw(LS.salUrl, $('connSalarioUrl').value.trim());
       store.setRaw(LS.salKey, $('connSalarioKey').value.trim());
@@ -1436,6 +1552,8 @@ if (typeof document !== 'undefined') (() => {
       store.setRaw(LS.recKey, $('connRecibosKey').value.trim());
       store.setRaw(LS.venUrl, $('connVendasUrl').value.trim());
       store.setRaw(LS.venKey, $('connVendasKey').value.trim());
+      store.setRaw(LS.wiseUrl, $('connWiseUrl').value.trim());
+      store.setRaw(LS.wiseKey, $('connWiseKey').value.trim());
       if (isDemo()) store.setRaw(LS.demo, '');
       $('connStatus').textContent = 'Conexões salvas. Sincronizando…';
       refreshLinkStates();
