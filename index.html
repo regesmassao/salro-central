@@ -75,6 +75,10 @@
         <rect class="map-node-pill" x="268" y="88" width="64" height="14.5" rx="7.25"/>
         <text x="300" y="97.5" class="map-node-value" id="hubNodeSalarioSobraValue"></text>
       </g>
+      <g id="hubNodeSalarioBanco" hidden>
+        <rect class="map-node-pill" x="258" y="104.5" width="84" height="14.5" rx="7.25"/>
+        <text x="300" y="114" class="map-node-value" id="hubNodeSalarioBancoValue"></text>
+      </g>
     </g>
     <g class="hub-node" data-target="sheet-ir" tabindex="0" role="button" aria-label="Abrir o painel do app Meu IR">
       <circle cx="38" cy="128" r="27" class="map-node-hit"/>
@@ -143,7 +147,7 @@
     <span class="drawer-title"><span class="wm-spark" aria-hidden="true">✦</span> Salro Central</span>
     <button type="button" class="sheet-close" id="drawerClose" aria-label="Fechar o menu">✕</button>
   </div>
-  <p class="drawer-version"><span class="version-tag">v2.6.7</span></p>
+  <p class="drawer-version"><span class="version-tag">v2.6.8</span></p>
   <button type="button" class="drawer-item" data-sheet="sheet-hoje">📅 Hoje — atenção e resumo</button>
   <button type="button" class="drawer-item" data-sheet="sheet-vida">📈 Painel da Vida — todos os apps</button>
   <button type="button" class="drawer-item" data-sheet="sheet-salario">🌳 Salário</button>
@@ -156,7 +160,7 @@
   <button type="button" class="drawer-item" data-sheet="sheet-conexoes">⚙️ Conexões</button>
   <hr class="sep">
   <button type="button" class="drawer-item" id="drawerSync">↻ Sincronizar agora</button>
-  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.6.7</p>
+  <p class="drawer-foot">Os apps continuam independentes — aqui é só o resumo.<br>Valores em ienes (¥) e em reais (R$) sempre separados, sem conversão.<br>Salro Central v2.6.8</p>
 </nav>
 <div id="backdrop" class="backdrop" hidden></div>
 
@@ -204,6 +208,11 @@
         <div class="kpi-value" id="kpiSalario">—</div>
         <div class="kpi-sub" id="kpiSalarioSub"></div>
         <div id="salSaldoBox"></div>
+      </div>
+      <div class="glass-card" id="salBancoCard">
+        <h3 class="card-title">🏦 Banco (Yucho) — estimativa</h3>
+        <div id="salBancoBox"></div>
+        <p class="fineprint">Estimativa: considera o líquido do mês menos os saques lançados. Débitos automáticos entram numa próxima etapa.</p>
       </div>
     </div>
   </div>

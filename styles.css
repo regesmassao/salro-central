@@ -126,6 +126,13 @@ g.hub-node:nth-of-type(6) .map-node-halo{animation-delay:2.1s}
 .map-node-pill{fill:rgba(9,24,53,.62);stroke:rgba(251,229,191,.16);stroke-width:.6}
 .map-node-value{text-anchor:middle;font-size:9.5px;font-weight:700;fill:var(--copper);font-variant-numeric:tabular-nums}
 #hubNodeSalarioSobra[hidden]{display:none}
+#hubNodeSalarioBanco[hidden]{display:none}
+.banco-person{padding:8px 0 2px;border-bottom:1px solid rgba(251,229,191,.09)}
+.banco-person:last-child{border-bottom:none}
+.saque-form input[type=number]{
+  background:rgba(9,24,53,.55);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--paper);font-size:14px;padding:10px 11px;width:100%;
+}
 #hubNodeSalarioSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
 #hubNodeSalarioSobra.neg .map-node-value{fill:var(--danger)}
 #hubNodeVidaSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
