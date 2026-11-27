@@ -108,6 +108,9 @@ g.hub-node:nth-of-type(6) .map-node-halo{animation-delay:2.1s}
 }
 .map-node-pill{fill:rgba(9,24,53,.62);stroke:rgba(251,229,191,.16);stroke-width:.6}
 .map-node-value{text-anchor:middle;font-size:9.5px;font-weight:700;fill:var(--copper);font-variant-numeric:tabular-nums}
+#hubNodeSalarioSobra[hidden]{display:none}
+#hubNodeSalarioSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
+#hubNodeSalarioSobra.neg .map-node-value{fill:var(--danger)}
 .glass-card.flash{border-color:var(--copper);box-shadow:0 0 0 2px rgba(205,146,100,.55),0 12px 32px rgba(2,6,18,.45)}
 
 /* ---------- Cartões de vidro ---------- */
