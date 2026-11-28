@@ -16,6 +16,8 @@
   --border:rgba(251,229,191,.16);
   --track:rgba(251,229,191,.14);
   --danger:#e88;
+  --money-neg:#F87171;
+  --money-pos:#4ADE80;
   --radius:19px;
   --radius-sm:12px;
 }
@@ -134,9 +136,9 @@ g.hub-node:nth-of-type(6) .map-node-halo{animation-delay:2.1s}
   color:var(--paper);font-size:14px;padding:10px 11px;width:100%;
 }
 #hubNodeSalarioSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
-#hubNodeSalarioSobra.neg .map-node-value{fill:var(--danger)}
+#hubNodeSalarioSobra.neg .map-node-value{fill:var(--money-neg)}
 #hubNodeVidaSobra.neg .map-node-pill{stroke:rgba(238,136,136,.55)}
-#hubNodeVidaSobra.neg .map-node-value{fill:var(--danger)}
+#hubNodeVidaSobra.neg .map-node-value{fill:var(--money-neg)}
 .glass-card.flash{border-color:var(--copper);box-shadow:0 0 0 2px rgba(205,146,100,.55),0 12px 32px rgba(2,6,18,.45)}
 
 /* ---------- Cartões de vidro ---------- */
@@ -345,3 +347,16 @@ body.no-scroll{overflow:hidden}
   .sheet.open{transform:translateX(0)}
   .drawer-item{font-size:16.5px;padding:16px}
 }
+
+/* ---------- Cores do dinheiro (regra do Reges, 2026-11-28) ----------
+   Valor negativo: VERMELHO. Valor positivo: VERDE só quando é
+   total/saldo; saída (gasto, conta, saque, taxa) é vermelha;
+   entrada e demais positivos ficam na cor padrão do elemento.
+   As classes vêm de SalroCalc.moneyClass (app.js) e ficam no fim
+   da folha para vencer as cores padrão dos componentes. */
+.mneg{color:var(--money-neg)}
+.mpos{color:var(--money-pos)}
+.bill-row.total .bill-meta.mneg{color:var(--money-neg)}
+.bill-row.total .bill-meta.mpos{color:var(--money-pos)}
+.map-node-value.mneg{fill:var(--money-neg)}
+.map-node-value.mpos{fill:var(--money-pos)}
