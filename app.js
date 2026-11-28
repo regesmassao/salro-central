@@ -33,6 +33,22 @@ const SalroCalc = (() => {
     if (v == null || isNaN(v)) return '—';
     return 'R$ ' + Math.round(v).toLocaleString('pt-BR');
   }
+  /* ---- Cores do dinheiro (regra do Reges, 2026-11-28) ----
+     Devolve a classe CSS de um valor monetário conforme o papel
+     dele: negativo é SEMPRE vermelho ('mneg'); positivo só é
+     verde ('mpos') quando é total/saldo (kind 'total'); saída
+     (kind 'out': gasto, conta, saque, taxa) é vermelha; entrada
+     (kind 'in') e qualquer outro positivo ficam na cor padrão
+     (classe vazia). Zero e valor ausente/inválido: cor padrão. */
+  function moneyClass(value, kind) {
+    if (value == null || !isFinite(Number(value))) return '';
+    const v = Number(value);
+    if (v < 0) return 'mneg';
+    if (v === 0) return '';
+    if (kind === 'total') return 'mpos';
+    if (kind === 'out') return 'mneg';
+    return '';
+  }
   function parseSafe(v, fallback) {
     if (v == null) return fallback;
     if (typeof v === 'object') return v;
@@ -532,7 +548,7 @@ const SalroCalc = (() => {
     ].join('\n');
   }
 
-  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS, wiseCompleted, mergeRemessas, bancoEstimativa };
+  return { ymOf, ymShift, ymLabel, fmtJPY, fmtBRL, fmtBRL0, fmtPct, fmtPctPlain, moneyClass, msjMonth, msjMonthYm, irSummary, irCostAt, irMarket, recibosSummary, recibosOut, recibosFirstYm, vendasSummary, painelVida, parseSafe, linkPrompt, LINK_APPS, wiseCompleted, mergeRemessas, bancoEstimativa };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = SalroCalc;
@@ -761,6 +777,10 @@ if (typeof document !== 'undefined') (() => {
   function renderSalario(state) {
     const val = $('hubSalarioValue'), sub = $('hubSalarioSub'), sync = $('hubSalarioSync'),
       node = $('hubNodeSalarioValue'), kpi = $('kpiSalario'), kpiSub = $('kpiSalarioSub');
+    /* aqui o nó mostra o LÍQUIDO (entrada → cor padrão); quem
+       colore o nó é o renderVida, quando troca o valor pelo
+       SALDO do mês (total → verde/vermelho) */
+    node.classList.remove('mneg', 'mpos');
     if (!state || state.status === 'none') {
       val.textContent = '—'; node.textContent = 'sem ponte';
       sub.textContent = 'Configure a ponte em ⚙️ Conexões para ver o resumo do mês.';
@@ -807,6 +827,7 @@ if (typeof document !== 'undefined') (() => {
     const chartP = $('chartProventos'), chartA = $('chartAlocacao');
     if (!state || state.status === 'none') {
       val.textContent = '—'; node.textContent = 'sem ponte';
+      setMoney(val, null); setMoney(node, null);
       sub.textContent = 'Configure a ponte em ⚙️ Conexões para ver a carteira.';
       sync.textContent = ''; kpi.textContent = '—'; kpiSub.textContent = 'ponte não configurada';
       chartP.innerHTML = '<p class="chart-empty">Configure a ponte do IR em ⚙️ Conexões.</p>';
@@ -815,6 +836,7 @@ if (typeof document !== 'undefined') (() => {
     }
     if (state.status === 'error') {
       val.textContent = '—'; node.textContent = 'erro';
+      setMoney(val, null); setMoney(node, null);
       sub.textContent = 'Não foi possível ler a nuvem — confira o link e a chave em ⚙️ Conexões.';
       sync.textContent = ''; kpi.textContent = '—'; kpiSub.textContent = 'erro de leitura';
       chartP.innerHTML = '<p class="chart-empty">Erro ao ler a nuvem do IR.</p>';
@@ -825,6 +847,7 @@ if (typeof document !== 'undefined') (() => {
     sync.textContent = fmtSync(resp.updatedAt);
     if (!resp.exists || !resp.data) {
       val.textContent = '—'; node.textContent = 'sem backup';
+      setMoney(val, null); setMoney(node, null);
       sub.textContent = 'A ponte respondeu, mas ainda não há backup na nuvem. Abra o app Meu IR e envie um backup.';
       kpi.textContent = '—'; kpiSub.textContent = 'sem backup na nuvem';
       chartP.innerHTML = '<p class="chart-empty">Sem backup na nuvem ainda.</p>';
@@ -834,6 +857,10 @@ if (typeof document !== 'undefined') (() => {
     const s = SalroCalc.irSummary(resp.data);
     val.textContent = SalroCalc.fmtBRL(s.totalCost);
     node.textContent = SalroCalc.fmtBRL0(s.totalCost);
+    /* carteira a custo = total da posição → verde se positivo;
+       proventos (kpi) são entrada → cor padrão */
+    setMoney(val, s.totalCost, 'total');
+    setMoney(node, s.totalCost, 'total');
     sub.textContent = 'carteira a custo · ' + s.nAssets + ' ativos' +
       (s.market != null ? ' · a mercado ≈ ' + SalroCalc.fmtBRL(s.market) : '');
     kpi.textContent = SalroCalc.fmtBRL(s.total12);
@@ -853,7 +880,7 @@ if (typeof document !== 'undefined') (() => {
     if (s.byClass.length) {
       chartA.innerHTML = s.byClass.map((c) =>
         '<div class="alloc-row"><div class="alloc-head"><span class="alloc-name">' + c.label + '</span>' +
-        '<span class="alloc-val">' + SalroCalc.fmtBRL(c.value) + ' · ' + c.pct.toFixed(1).replace('.', ',') + '%</span></div>' +
+        '<span class="alloc-val' + mCls(c.value, 'total') + '">' + SalroCalc.fmtBRL(c.value) + ' · ' + c.pct.toFixed(1).replace('.', ',') + '%</span></div>' +
         '<div class="alloc-track"><div class="alloc-fill" style="width:' + c.pct.toFixed(1) + '%"></div></div></div>'
       ).join('');
     } else chartA.innerHTML = '<p class="chart-empty">Sem posições no backup.</p>';
@@ -862,6 +889,16 @@ if (typeof document !== 'undefined') (() => {
   /* ---------- Render: Recibos ---------- */
   const escHtml = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  /* Cores do dinheiro: mCls monta o sufixo de classe para as
+     strings de HTML; setMoney aplica (e limpa) a classe num
+     elemento já no DOM — inclusive nos <text> dos nós do mapa. */
+  const mCls = (v, kind) => { const c = SalroCalc.moneyClass(v, kind); return c ? ' ' + c : ''; };
+  const setMoney = (el, v, kind) => {
+    if (!el) return;
+    el.classList.remove('mneg', 'mpos');
+    const c = SalroCalc.moneyClass(v, kind);
+    if (c) el.classList.add(c);
+  };
   function fmtDateShort(iso) {
     if (!iso) return '—';
     const p = String(iso).split('-');
@@ -893,6 +930,7 @@ if (typeof document !== 'undefined') (() => {
       list.innerHTML = ''; bd.innerHTML = '';
       gastoCard.classList.add('muted'); contasCard.classList.add('muted');
       kContas.classList.remove('danger');
+      setMoney(val, null); setMoney(node, null); setMoney(kGasto, null);
       setNodeAlert('sheet-recibos', false, 'hubBadgeRecibos', 'hubBadgeRecibosText', 0);
     };
     if (!state || state.status === 'none') {
@@ -937,15 +975,20 @@ if (typeof document !== 'undefined') (() => {
     gastoCard.classList.remove('muted'); contasCard.classList.remove('muted');
     val.textContent = SalroCalc.fmtJPY(s.monthTotal);
     node.textContent = SalroCalc.fmtJPY(out.total);
+    /* tudo aqui é dinheiro que SAIU (gasto/despesa) → vermelho,
+       inclusive o "= Total do mês": é total de gasto, não saldo */
+    setMoney(val, s.monthTotal, 'out');
+    setMoney(node, out.total, 'out');
     bd.innerHTML = (out.nRec + out.nCon === 0) ? '' :
       (out.nRec > 0
-        ? '<div class="bill-row"><span class="bill-name">Gastos</span><span class="bill-meta">' + SalroCalc.fmtJPY(out.recibos) + '</span></div>' : '') +
+        ? '<div class="bill-row"><span class="bill-name">Gastos</span><span class="bill-meta' + mCls(out.recibos, 'out') + '">' + SalroCalc.fmtJPY(out.recibos) + '</span></div>' : '') +
       (out.nCon > 0
-        ? '<div class="bill-row"><span class="bill-name">Despesas</span><span class="bill-meta">' + SalroCalc.fmtJPY(out.contas) + '</span></div>' : '') +
-      '<div class="bill-row total"><span class="bill-name">= Total do mês</span><span class="bill-meta">' + SalroCalc.fmtJPY(out.total) + '</span></div>';
+        ? '<div class="bill-row"><span class="bill-name">Despesas</span><span class="bill-meta' + mCls(out.contas, 'out') + '">' + SalroCalc.fmtJPY(out.contas) + '</span></div>' : '') +
+      '<div class="bill-row total"><span class="bill-name">= Total do mês</span><span class="bill-meta' + mCls(out.total, 'out') + '">' + SalroCalc.fmtJPY(out.total) + '</span></div>';
     sub.textContent = 'gasto do mês · ' + s.monthCount + (s.monthCount === 1 ? ' recibo' : ' recibos') +
       ' · ' + s.billsCount + (s.billsCount === 1 ? ' conta a pagar' : ' contas a pagar');
     kGasto.textContent = SalroCalc.fmtJPY(s.monthTotal);
+    setMoney(kGasto, s.monthTotal, 'out');
     kGastoSub.textContent = s.monthCount + (s.monthCount === 1 ? ' recibo no mês' : ' recibos no mês');
     kContas.textContent = s.billsCount === 0 ? 'nenhuma 🎉' : String(s.billsCount);
     kContas.classList.toggle('danger', s.overdueCount > 0);
@@ -960,7 +1003,7 @@ if (typeof document !== 'undefined') (() => {
       ? '<div class="app-list-title">Contas a vencer</div>' + s.bills.slice(0, 5).map((b) =>
           '<div class="bill-row' + (b.overdue ? ' overdue' : '') + '">' +
           '<span class="bill-name">' + escHtml(b.store || 'Conta') + '</span>' +
-          '<span class="bill-meta">' + SalroCalc.fmtJPY(b.amount) + ' · ' +
+          '<span class="bill-meta' + mCls(b.amount, 'out') + '">' + SalroCalc.fmtJPY(b.amount) + ' · ' +
           (b.due ? (b.overdue ? 'venceu ' : 'vence ') + fmtDateShort(b.due) : 'sem vencimento') +
           '</span></div>').join('')
       : '';
@@ -979,6 +1022,7 @@ if (typeof document !== 'undefined') (() => {
       kMes.textContent = '—'; kMesSub.textContent = subText;
       kLuc.textContent = '—'; kLucSub.textContent = subText;
       kTot.textContent = '—'; kTotSub.textContent = subText;
+      setMoney(node, null); setMoney(kLuc, null); setMoney(kTot, null);
     };
     if (!state || state.status === 'none') {
       setMuted(true);
@@ -1008,6 +1052,11 @@ if (typeof document !== 'undefined') (() => {
     if (s.hasResumo) {
       val.textContent = SalroCalc.fmtBRL(s.mes.bruto);
       node.textContent = SalroCalc.fmtBRL0(s.mes.lucro);
+      /* lucro é total → verde/vermelho; bruto é entrada → padrão */
+      setMoney(node, s.mes.lucro, 'total');
+      setMoney(kLuc, s.mes.lucro, 'total');
+      setMoney(kTot, s.totais.lucro, 'total');
+      setMoney(kMes, s.mes.bruto, 'in');
       sub.textContent = 'vendas do mês · ' + s.mes.qtd + (s.mes.qtd === 1 ? ' venda' : ' vendas') +
         ' · lucro ' + SalroCalc.fmtBRL(s.mes.lucro);
       kMes.textContent = SalroCalc.fmtBRL(s.mes.bruto);
@@ -1022,6 +1071,10 @@ if (typeof document !== 'undefined') (() => {
     } else {
       val.textContent = SalroCalc.fmtBRL(s.brutoTotal);
       node.textContent = SalroCalc.fmtBRL0(s.brutoTotal);
+      /* sem resumo: nó e total mostram o BRUTO (entrada → padrão) */
+      setMoney(node, s.brutoTotal, 'in');
+      setMoney(kTot, s.brutoTotal, 'in');
+      setMoney(kLuc, null);
       sub.textContent = s.qtdTotal + (s.qtdTotal === 1 ? ' venda' : ' vendas') + ' no backup · bruto ' +
         SalroCalc.fmtBRL(s.brutoTotal) + ' (resumo detalhado vem do app Vendas)';
       kMes.textContent = '—'; kMesSub.textContent = 'resumo detalhado vem do app Vendas';
@@ -1213,7 +1266,7 @@ if (typeof document !== 'undefined') (() => {
         if (!b.due) return;
         const du = daysUntil(b.due);
         if (du !== null && du <= 7) {
-          lines.push({ when: du, html: '<div class="bill-row' + (b.overdue ? ' overdue' : '') + '"><span class="bill-name">' + escHtml(b.store || 'Conta') + '</span><span class="bill-meta">' + SalroCalc.fmtJPY(b.amount) + ' · ' + (b.overdue ? 'venceu ' : 'vence ') + fmtDateShort(b.due) + '</span></div>' });
+          lines.push({ when: du, html: '<div class="bill-row' + (b.overdue ? ' overdue' : '') + '"><span class="bill-name">' + escHtml(b.store || 'Conta') + '</span><span class="bill-meta' + mCls(b.amount, 'out') + '">' + SalroCalc.fmtJPY(b.amount) + ' · ' + (b.overdue ? 'venceu ' : 'vence ') + fmtDateShort(b.due) + '</span></div>' });
         }
       });
     }
@@ -1226,7 +1279,7 @@ if (typeof document !== 'undefined') (() => {
       if (m.anySnap) parts.push('<div class="bill-row"><span class="bill-name">🌳 Salário do mês (casal)</span><span class="bill-meta">' + SalroCalc.fmtJPY(m.totalNet) + ' líq.</span></div>');
       else if (m.totalDays) parts.push('<div class="bill-row"><span class="bill-name">🌳 Salário do mês</span><span class="bill-meta">' + m.totalDays + ' dias lançados</span></div>');
     }
-    if (recSum) parts.push('<div class="bill-row"><span class="bill-name">🧾 Gasto no mês (Recibos)</span><span class="bill-meta">' + SalroCalc.fmtJPY(recSum.monthTotal) + '</span></div>');
+    if (recSum) parts.push('<div class="bill-row"><span class="bill-name">🧾 Gasto no mês (Recibos)</span><span class="bill-meta' + mCls(recSum.monthTotal, 'out') + '">' + SalroCalc.fmtJPY(recSum.monthTotal) + '</span></div>');
     const irState = lastEff && lastEff.ir;
     if (irState && irState.status === 'ok' && irState.resp && irState.resp.exists && irState.resp.data) {
       const si = SalroCalc.irSummary(irState.resp.data);
@@ -1299,12 +1352,12 @@ if (typeof document !== 'undefined') (() => {
     if (recData) {
       if (m.saiu != null) {
         yh += '<div class="glass-card kpi-card"><div class="kpi-label">🧾 Saiu · ' + m.label + ' (¥)</div>' +
-          '<div class="kpi-value">' + C.fmtJPY(m.saiu) + '</div>' +
-          '<div class="bill-row"><span class="bill-name">Recibos do mês</span><span class="bill-meta">' + C.fmtJPY(m.out.recibos) + ' · ' + m.out.nRec + (m.out.nRec === 1 ? ' recibo' : ' recibos') + '</span></div>';
+          '<div class="kpi-value' + mCls(m.saiu, 'out') + '">' + C.fmtJPY(m.saiu) + '</div>' +
+          '<div class="bill-row"><span class="bill-name">Recibos do mês</span><span class="bill-meta' + mCls(m.out.recibos, 'out') + '">' + C.fmtJPY(m.out.recibos) + ' · ' + m.out.nRec + (m.out.nRec === 1 ? ' recibo' : ' recibos') + '</span></div>';
         if (m.out.nCon > 0) {
-          yh += '<div class="bill-row"><span class="bill-name">Contas do mês</span><span class="bill-meta">' + C.fmtJPY(m.out.contas) + ' · ' + m.out.nCon + (m.out.nCon === 1 ? ' conta' : ' contas') + '</span></div>';
+          yh += '<div class="bill-row"><span class="bill-name">Contas do mês</span><span class="bill-meta' + mCls(m.out.contas, 'out') + '">' + C.fmtJPY(m.out.contas) + ' · ' + m.out.nCon + (m.out.nCon === 1 ? ' conta' : ' contas') + '</span></div>';
           m.out.contasList.forEach((c) => {
-            yh += '<div class="bill-row sub"><span class="bill-name">' + escHtml(c.name) + '</span><span class="bill-meta">' + C.fmtJPY(c.amount) +
+            yh += '<div class="bill-row sub"><span class="bill-name">' + escHtml(c.name) + '</span><span class="bill-meta' + mCls(c.amount, 'out') + '">' + C.fmtJPY(c.amount) +
               (c.due ? ' · venc. ' + c.due.slice(8, 10) + '/' + c.due.slice(5, 7) : '') + '</span></div>';
           });
         }
@@ -1315,8 +1368,8 @@ if (typeof document !== 'undefined') (() => {
     } else yh += vidaNotice('🧾 Recibos', recEff, 'Recibos');
     if (m.sobraPct != null) {
       yh += '<div class="glass-card kpi-card"><div class="kpi-label">✦ Sobra · ' + m.label + ' (¥)</div>' +
-        '<div class="kpi-value">' + C.fmtJPY(m.sobra) + '</div>' +
-        '<div class="kpi-sub">sobra de <strong>' + C.fmtPctPlain(m.sobraPct) + '</strong> do líquido do mês — a métrica para fazer subir, mês a mês 📈</div></div>';
+        '<div class="kpi-value' + mCls(m.sobra, 'total') + '">' + C.fmtJPY(m.sobra) + '</div>' +
+        '<div class="kpi-sub">sobra de <strong class="' + C.moneyClass(m.sobraPct, 'total') + '">' + C.fmtPctPlain(m.sobraPct) + '</strong> do líquido do mês — a métrica para fazer subir, mês a mês 📈</div></div>';
     }
     if (p.yen.serie.some((x) => x.sobraPct != null)) {
       const maxAbs = Math.max.apply(null, p.yen.serie.filter((x) => x.sobraPct != null).map((x) => Math.abs(x.sobraPct)).concat([1]));
@@ -1331,10 +1384,10 @@ if (typeof document !== 'undefined') (() => {
       let rows = '';
       if (yr.gross != null) rows += '<div class="bill-row"><span class="bill-name">Bruto do casal em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.gross) + ' · ' + yr.grossMonths + (yr.grossMonths === 1 ? ' mês' : ' meses') + ' com cálculo</span></div>';
       if (yr.net != null) rows += '<div class="bill-row"><span class="bill-name">Líquido em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.net) + '</span></div>';
-      if (yr.saiu != null) rows += '<div class="bill-row"><span class="bill-name">Saiu em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiu) + '</span></div>';
-      if (yr.saiuRecibos != null) rows += '<div class="bill-row sub"><span class="bill-name">Recibos em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiuRecibos) + '</span></div>';
-      if (yr.saiuContas != null && yr.saiuContas > 0) rows += '<div class="bill-row sub"><span class="bill-name">Contas em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.saiuContas) + '</span></div>';
-      if (yr.sobra != null) rows += '<div class="bill-row"><span class="bill-name">Sobra em ' + p.year + '</span><span class="bill-meta">' + C.fmtJPY(yr.sobra) + ' · ' + C.fmtPctPlain(yr.sobraPct) + ' do líquido</span></div>';
+      if (yr.saiu != null) rows += '<div class="bill-row"><span class="bill-name">Saiu em ' + p.year + '</span><span class="bill-meta' + mCls(yr.saiu, 'out') + '">' + C.fmtJPY(yr.saiu) + '</span></div>';
+      if (yr.saiuRecibos != null) rows += '<div class="bill-row sub"><span class="bill-name">Recibos em ' + p.year + '</span><span class="bill-meta' + mCls(yr.saiuRecibos, 'out') + '">' + C.fmtJPY(yr.saiuRecibos) + '</span></div>';
+      if (yr.saiuContas != null && yr.saiuContas > 0) rows += '<div class="bill-row sub"><span class="bill-name">Contas em ' + p.year + '</span><span class="bill-meta' + mCls(yr.saiuContas, 'out') + '">' + C.fmtJPY(yr.saiuContas) + '</span></div>';
+      if (yr.sobra != null) rows += '<div class="bill-row"><span class="bill-name">Sobra em ' + p.year + '</span><span class="bill-meta' + mCls(yr.sobra, 'total') + '">' + C.fmtJPY(yr.sobra) + ' · ' + C.fmtPctPlain(yr.sobraPct) + ' do líquido</span></div>';
       if (p.yen.yoy.net) rows += '<div class="bill-row"><span class="bill-name">Líquido vs ' + (Number(p.year) - 1) + ' (mesmo período)</span><span class="bill-meta">' + C.fmtPct(p.yen.yoy.net.pct) + '</span></div>';
       if (p.yen.yoy.saiu) rows += '<div class="bill-row"><span class="bill-name">Saiu vs ' + (Number(p.year) - 1) + ' (mesmo período)</span><span class="bill-meta">' + C.fmtPct(p.yen.yoy.saiu.pct) + '</span></div>';
       yh += '<div class="glass-card"><h3 class="card-title">📅 Acumulado de ' + p.year + ' (¥)</h3>' + rows + '</div>';
@@ -1353,10 +1406,10 @@ if (typeof document !== 'undefined') (() => {
     const inv = p.brl.invest;
     if (irData && inv) {
       bh += '<div class="glass-card kpi-card"><div class="kpi-label">📊 Investimentos · carteira a custo (R$)</div>' +
-        '<div class="kpi-value">' + C.fmtBRL(inv.cost) + '</div>' +
+        '<div class="kpi-value' + mCls(inv.cost, 'total') + '">' + C.fmtBRL(inv.cost) + '</div>' +
         '<div class="kpi-sub">' + inv.nAssets + ' ativos' +
         (inv.market != null
-          ? ' · a mercado ≈ ' + C.fmtBRL(inv.market) + (inv.marketDate ? ' (cotações de ' + fmtDateShort(inv.marketDate) + ')' : '')
+          ? ' · a mercado ≈ <span class="' + C.moneyClass(inv.market, 'total') + '">' + C.fmtBRL(inv.market) + '</span>' + (inv.marketDate ? ' (cotações de ' + fmtDateShort(inv.marketDate) + ')' : '')
           : ' · sem cotação completa p/ mercado') +
         ' · proventos 12 meses ' + C.fmtBRL(inv.prov12) + '</div></div>';
       let rows = '';
@@ -1380,9 +1433,9 @@ if (typeof document !== 'undefined') (() => {
       } else if (ven.hasResumo && ven.mes) {
         bh += '<div class="glass-card"><h3 class="card-title">💰 Vendas (R$)</h3>' +
           '<div class="bill-row"><span class="bill-name">Bruto do mês · ' + ven.mes.qtd + (ven.mes.qtd === 1 ? ' venda' : ' vendas') + '</span><span class="bill-meta">' + C.fmtBRL(ven.mes.bruto) + '</span></div>' +
-          '<div class="bill-row"><span class="bill-name">Taxas da plataforma (mês)</span><span class="bill-meta">' + C.fmtBRL(ven.taxasMes) + '</span></div>' +
-          '<div class="bill-row"><span class="bill-name">Líquido da plataforma (mês)</span><span class="bill-meta">' + C.fmtBRL(ven.mes.liquido) + '</span></div>' +
-          '<div class="bill-row"><span class="bill-name">Lucro do mês (após reserva)</span><span class="bill-meta">' + C.fmtBRL(ven.mes.lucro) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Taxas da plataforma (mês)</span><span class="bill-meta' + mCls(ven.taxasMes, 'out') + '">' + C.fmtBRL(ven.taxasMes) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Líquido da plataforma (mês)</span><span class="bill-meta' + mCls(ven.mes.liquido, 'total') + '">' + C.fmtBRL(ven.mes.liquido) + '</span></div>' +
+          '<div class="bill-row"><span class="bill-name">Lucro do mês (após reserva)</span><span class="bill-meta' + mCls(ven.mes.lucro, 'total') + '">' + C.fmtBRL(ven.mes.lucro) + '</span></div>' +
           '<div class="bill-row"><span class="bill-name">Total geral · ' + ven.totais.qtd + (ven.totais.qtd === 1 ? ' venda' : ' vendas') + '</span><span class="bill-meta">bruto ' + C.fmtBRL(ven.totais.bruto) + ' · lucro ' + C.fmtBRL(ven.totais.lucro) + '</span></div></div>';
       } else {
         bh += '<div class="glass-card"><h3 class="card-title">💰 Vendas (R$)</h3><div class="bill-row"><span class="bill-name">Bruto total · ' + ven.qtdTotal + (ven.qtdTotal === 1 ? ' venda' : ' vendas') + '</span><span class="bill-meta">' + C.fmtBRL(ven.brutoTotal) + '</span></div><p class="fineprint">O detalhamento (taxas, líquido e lucro) vem do resumo que o app Vendas calcula.</p></div>';
@@ -1398,10 +1451,12 @@ if (typeof document !== 'undefined') (() => {
     if (vidaSobra && pill) {
       if (m.sobraPct != null) {
         pill.textContent = 'sobra ' + Math.round(m.sobraPct) + '%';
+        setMoney(pill, m.sobraPct, 'total');
         vidaSobra.classList.toggle('neg', m.sobraPct < 0);
         vidaSobra.removeAttribute('hidden');
         vidaSobra.style.display = '';
       } else {
+        setMoney(pill, null);
         vidaSobra.setAttribute('hidden', '');
         vidaSobra.style.display = 'none';
       }
@@ -1414,10 +1469,12 @@ if (typeof document !== 'undefined') (() => {
     if (salSobra && salSobraVal) {
       if (m.sobraPct != null) {
         salSobraVal.textContent = 'sobra ' + Math.round(m.sobraPct) + '%';
+        setMoney(salSobraVal, m.sobraPct, 'total');
         salSobra.classList.toggle('neg', m.sobraPct < 0);
         salSobra.removeAttribute('hidden');
         salSobra.style.display = '';
       } else {
+        setMoney(salSobraVal, null);
         salSobra.setAttribute('hidden', '');
         salSobra.style.display = 'none';
       }
@@ -1428,14 +1485,18 @@ if (typeof document !== 'undefined') (() => {
        renderSalario já colocou. E a folha do Salário ganha a
        composição do mês (líquido − recibos − contas = saldo). ----- */
     const salNodeVal = $('hubNodeSalarioValue');
-    if (salNodeVal && m.sobra != null) salNodeVal.textContent = C.fmtJPY(m.sobra);
+    if (salNodeVal && m.sobra != null) {
+      salNodeVal.textContent = C.fmtJPY(m.sobra);
+      /* a pill principal do nó É o saldo do mês → verde/vermelho */
+      setMoney(salNodeVal, m.sobra, 'total');
+    }
     const salBox = $('salSaldoBox');
     if (salBox) {
       if (m.sobra != null && m.out) {
         let rows = '<div class="bill-row"><span class="bill-name">Líquido do mês</span><span class="bill-meta">' + C.fmtJPY(m.net) + '</span></div>';
-        if (m.out.nRec > 0 || m.out.nCon === 0) rows += '<div class="bill-row"><span class="bill-name">− Recibos</span><span class="bill-meta">' + C.fmtJPY(m.out.recibos) + '</span></div>';
-        if (m.out.nCon > 0) rows += '<div class="bill-row"><span class="bill-name">− Contas</span><span class="bill-meta">' + C.fmtJPY(m.out.contas) + '</span></div>';
-        rows += '<div class="bill-row total"><span class="bill-name">= Saldo do mês</span><span class="bill-meta">' + C.fmtJPY(m.sobra) + '</span></div>';
+        if (m.out.nRec > 0 || m.out.nCon === 0) rows += '<div class="bill-row"><span class="bill-name">− Recibos</span><span class="bill-meta' + mCls(m.out.recibos, 'out') + '">' + C.fmtJPY(m.out.recibos) + '</span></div>';
+        if (m.out.nCon > 0) rows += '<div class="bill-row"><span class="bill-name">− Contas</span><span class="bill-meta' + mCls(m.out.contas, 'out') + '">' + C.fmtJPY(m.out.contas) + '</span></div>';
+        rows += '<div class="bill-row total"><span class="bill-name">= Saldo do mês</span><span class="bill-meta' + mCls(m.sobra, 'total') + '">' + C.fmtJPY(m.sobra) + '</span></div>';
         salBox.innerHTML = rows;
       } else salBox.innerHTML = '';
     }
@@ -1517,7 +1578,7 @@ if (typeof document !== 'undefined') (() => {
   function renderBanco() {
     const box = $('salBancoBox'), pill = $('hubNodeSalarioBanco'), pillVal = $('hubNodeSalarioBancoValue');
     if (!box) return;
-    const hidePill = () => { if (pill) { pill.setAttribute('hidden', ''); pill.style.display = 'none'; } };
+    const hidePill = () => { if (pill) { pill.setAttribute('hidden', ''); pill.style.display = 'none'; } setMoney(pillVal, null); };
     const st = lastEff && lastEff.sal;
     if (!st || st.status !== 'ok' || !st.resp || !st.resp.exists || !st.resp.data || !st.resp.data.data) {
       box.innerHTML = '<p class="chart-empty">Configure a ponte do Salário em ⚙️ Conexões para estimar o saldo de cada conta.</p>';
@@ -1543,16 +1604,16 @@ if (typeof document !== 'undefined') (() => {
         '<div class="app-list-title">' + escHtml(e.name) + '</div>' +
         '<div class="bill-row"><span class="bill-name">Entrou (líquido do mês)</span><span class="bill-meta">' +
           (est.liquido != null ? SalroCalc.fmtJPY(est.liquido) : '— (sem cálculo no app)') + '</span></div>' +
-        '<div class="bill-row"><span class="bill-name">Saques no mês</span><span class="bill-meta">' +
+        '<div class="bill-row"><span class="bill-name">Saques no mês</span><span class="bill-meta' + mCls(est.totalSaques, 'out') + '">' +
           (est.nSaques > 0
             ? '−' + SalroCalc.fmtJPY(est.totalSaques) + ' · ' + est.nSaques + (est.nSaques === 1 ? ' lançamento' : ' lançamentos')
             : SalroCalc.fmtJPY(0)) + '</span></div>' +
-        '<div class="bill-row total"><span class="bill-name">Estimativa na conta</span><span class="bill-meta">' +
+        '<div class="bill-row total"><span class="bill-name">Estimativa na conta</span><span class="bill-meta' + mCls(est.estimativa, 'total') + '">' +
           (est.estimativa != null ? SalroCalc.fmtJPY(est.estimativa) : '—') + '</span></div>' +
         (est.saques.length
           ? '<ul class="check-list">' + est.saques.map((s) =>
               '<li class="check-item"><div class="check-body"><div class="check-text">' + fmtDateShort(s.date) + '</div>' +
-              '<div class="check-due">' + SalroCalc.fmtJPY(s.amount) + '</div></div>' +
+              '<div class="check-due' + mCls(s.amount, 'out') + '">' + SalroCalc.fmtJPY(s.amount) + '</div></div>' +
               '<button type="button" class="check-del" data-saque-del="' + s.id + '" aria-label="Apagar saque">✕</button></li>').join('') + '</ul>'
           : '') +
         '<div class="conn-actions"><button type="button" class="btn-ghost" data-saque-open="' + escHtml(e.id) + '">+ Saque</button></div>' +
@@ -1567,6 +1628,8 @@ if (typeof document !== 'undefined') (() => {
     if (pill && pillVal) {
       if (anySaque && anyEst) {
         pillVal.textContent = 'banco ≈ ' + fmtJpyCompact(totalEst);
+        /* a pill "banco ≈" é um saldo estimado → verde/vermelho */
+        setMoney(pillVal, totalEst, 'total');
         pill.removeAttribute('hidden');
         pill.style.display = '';
       } else hidePill();
